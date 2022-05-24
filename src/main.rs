@@ -1,21 +1,20 @@
 #[macro_use]
 extern crate lazy_static;
 use hlua::Lua;
-use macroquad::prelude::coroutines::start_coroutine;
 use macroquad::prelude::*;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fs::File;
-use std::future::Future;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use std::thread;
 
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant, SystemTime};
 
 lazy_static! {
+    static ref BASE_PATH: PathBuf = env::current_dir().unwrap();
     static ref IMAGE: Mutex<Image> = Mutex::new(Image::gen_image_color(
         screen_width() as u16,
         screen_height() as u16,
@@ -132,6 +131,7 @@ struct App<'a> {
 
 impl<'a> App<'a> {
     fn new(root: &'a Path) -> App<'a> {
+        env::set_current_dir(&root).unwrap();
         let mut lua = Lua::new();
         lua.openlibs();
         lua.set("set_pixel", hlua::function3(set_pixel));
@@ -140,26 +140,53 @@ impl<'a> App<'a> {
         lua.set("draw_img", hlua::function3(_draw_texture));
         lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
 
-        lua.execute::<()>("fennel = require(\"fennel\")").unwrap();
+        lua.execute::<()>("print(package.path)").unwrap();
+
+        // both package.path and fennel.path use '?' as wildcard
+        let mut base_copy = BASE_PATH.clone();
+        base_copy.push("?");
+
+        lua.execute::<()>(
+            std::format!(
+                "package.path = package.path .. ';{}.lua'",
+                str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
+            )
+            .as_str(),
+        )
+        .unwrap();
+
+        lua.execute::<()>("fennel = require('fennel')").unwrap();
         lua.execute::<()>("table.insert(package.loaders or package.searchers, fennel.searcher)")
             .unwrap();
-        lua.execute::<()>("system = require(\"system\")").unwrap();
-        match lua.execute::<()>("app = require(\"files/testapp/app\")") {
+
+        lua.execute::<()>(
+            std::format!(
+                "fennel.path = fennel.path .. ';{}.fnl'",
+                str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
+            )
+            .as_str(),
+        )
+        .unwrap();
+
+        lua.execute::<()>("system = require('system')").unwrap();
+
+        match lua.execute::<()>("app = require(\"app\")") {
             Err(e) => println!("LuaError: {:?}", e),
             res => res.unwrap(),
         }
+
         App {
             lua: lua,
             root: root,
         }
     }
+    fn set_working_directory(&self) {
+        env::set_current_dir(&self.root).unwrap();
+    }
     fn reload(&mut self, path: PathBuf) {
         // I'll want to test path against the app root here
         println!("{:?}", path);
-        match &self
-            .lua
-            .execute::<()>("app = system.reload(\"files.testapp.app\")")
-        {
+        match &self.lua.execute::<()>("app = system.reload(\"app\")") {
             Err(e) => println!("{:?}", e),
             _ => (),
         }
@@ -191,24 +218,27 @@ async fn main() {
     );
 
     let texture = Texture2D::from_image(&*IMAGE.lock().unwrap());
-    let mut app = App::new(Path::new("files/testapp"));
 
-    // println!(
-    //     "_preload_texture {:?}",
-    //     _preload_texture(&String::from("./files/testapp/sprites.png")).await
-    // );
+    // eventually we'll scan for available apps
+    let mut app_root = BASE_PATH.clone();
+    app_root.push("files");
+    app_root.push("testapp");
+    let mut app = App::new(app_root.as_path());
 
     loop {
+        app.set_working_directory();
         _handle_unloaded_textures().await;
         clear_background(WHITE);
 
         let dt = instant.elapsed().as_secs_f64() - elapsed;
         elapsed = instant.elapsed().as_secs_f64();
+
         app.update(dt);
 
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
-        //_draw_texture(String::from("./files/testapp/sprites.png"), 40, 40);
+
+        env::set_current_dir(BASE_PATH.clone()).unwrap();
 
         match rx.try_recv() {
             Ok(notify::DebouncedEvent::NoticeWrite(path)) => {

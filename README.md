@@ -4,12 +4,12 @@
 
 - [ ] lua bindings
   - [x] print to console (this was just lua 'print')
-  - [x] draw pixel
+  - [ ] draw pixel
   - [ ] draw primitives
   - [x] draw font
     - [ ] newlines
   - [ ] clear screen
-  - [ ] blit texture
+  - [x] blit texture
 
 ### systems
 
@@ -81,3 +81,25 @@ Good morning, I would like to sort out sprite rendering today.  Had some issues 
 Next i probably need to look into 
 - [ ] image alpha
 - [ ] clipping (maybe render textures? all I really need is squares)
+
+Closing thoughts for the night, `(print (fennel.view package.loaded))` shows all loaded code keyed by the module path, apparently they can have `/` or `.` separators
+
+```
+   :files.testapp.util {:frog #<function: 000001A42BF9DDE0>}
+   :files/testapp/app {:update #<function: 000001A42C080940>}
+   :files/testapp/util {:frog #<function: 000001A42C1CA680>}
+```
+
+I'll just need to identify which of these path fragment keys match the file path that changed and `reload` all matching keys
+
+## 5-23-2022
+
+Let's try setting the working directory for the lua processes and resolving the specific file that changed.
+
+changing the working directory to the "app" but first problem is my fennel and system files are elsewhere, worried that lua needs to be spun up with the right cwd for it's searchers. Guess i could load those two files from rust/hlua.. 
+
+OK thinking my easiest route is to add BASE_PATH to package.path, then i should be able to load `fennel.lua` and `system.fnl` with no fuss. ... This worked (had to add it to fennel.path as well) My app is running with it's own root path, and seems like `load_img` and `require` is also working from this new root.
+
+Small fix giving the test app an absolute root path, eventually these will come from scanning the user file system.
+
+Oh a caveat i was in the app cwd when the first `_handle_unloaded_textures` was called, so image loading worked but the keys were app local.  I probably want to either fully qualify the image paths or have a texture store for each app.
