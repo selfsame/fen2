@@ -26,7 +26,11 @@
 
   (draw_sprite "sprites.png"
     (+ 64 (* (math.sin time) 20)) 
-    (+ 54 (* (math.cos time) 20)) 8 0 8 8))
+    (+ 54 (* (math.cos time) 20)) 8 0 8 8)
+
+  (draw_rect 30 40 200 100 false)
+  (draw_rect_lines 30 40 200 100 2 true)
+  )
 
 (system.reload "util")
 ;(print (fennel.view package.loaded))

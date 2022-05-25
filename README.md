@@ -103,3 +103,13 @@ OK thinking my easiest route is to add BASE_PATH to package.path, then i should 
 Small fix giving the test app an absolute root path, eventually these will come from scanning the user file system.
 
 Oh a caveat i was in the app cwd when the first `_handle_unloaded_textures` was called, so image loading worked but the keys were app local.  I probably want to either fully qualify the image paths or have a texture store for each app.
+
+## 5-23-2022
+
+Yeah lets have a per app texture store, then the memory should be freed as well when an app closes. ... ..... ... OK that didn't work out. I tried changing the lua bindings to closures so they could call app methods for the texture stuff (because app now had the texture store) but to Rust that means moving app into the closure.
+
+Apparently that global Mutex wasn't the worst pattern for this.  I can probably do something like:
+* give each app a uuid
+* have a hashmap of hashmaps for each app's uuid
+
+That'll let me avoid collisions and clear texture memory when I destruct the apps.

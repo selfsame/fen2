@@ -124,6 +124,27 @@ fn draw_text(s: String, x: u32, y: u32, c: bool) {
     );
 }
 
+fn _draw_rect(x: u32, y: u32, w: u32, h: u32, c: bool) {
+    draw_rectangle(
+        x as f32,
+        y as f32,
+        w as f32,
+        h as f32,
+        if c { BLACK } else { WHITE },
+    );
+}
+
+fn _draw_rect_lines(x: u32, y: u32, w: u32, h: u32, thickness: u32, c: bool) {
+    draw_rectangle_lines(
+        x as f32,
+        y as f32,
+        w as f32,
+        h as f32,
+        (thickness * 2) as f32,
+        if c { BLACK } else { WHITE },
+    );
+}
+
 struct App<'a> {
     root: &'a Path,
     lua: Lua<'a>,
@@ -139,6 +160,9 @@ impl<'a> App<'a> {
         lua.set("load_img", hlua::function1(_preload_texture_sync));
         lua.set("draw_img", hlua::function3(_draw_texture));
         lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
+
+        lua.set("draw_rect", hlua::function5(_draw_rect));
+        lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
 
         lua.execute::<()>("print(package.path)").unwrap();
 
@@ -238,8 +262,6 @@ async fn main() {
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
 
-        env::set_current_dir(BASE_PATH.clone()).unwrap();
-
         match rx.try_recv() {
             Ok(notify::DebouncedEvent::NoticeWrite(path)) => {
                 app.reload(path);
@@ -247,6 +269,9 @@ async fn main() {
             Err(e) => (),
             _ => (),
         }
+
+        env::set_current_dir(BASE_PATH.clone()).unwrap();
+
         next_frame().await
     }
 }
