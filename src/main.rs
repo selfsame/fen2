@@ -145,6 +145,32 @@ fn _draw_rect_lines(x: u32, y: u32, w: u32, h: u32, thickness: u32, c: bool) {
     );
 }
 
+fn int_to_button(i: i32) -> MouseButton {
+    match i {
+        0 => MouseButton::Right,
+        1 => MouseButton::Left,
+        2 => MouseButton::Middle,
+        _ => MouseButton::Unknown,
+    }
+}
+
+fn _mouse_pos() -> (i32, i32) {
+    let (x, y) = mouse_position();
+    return (x as i32, y as i32);
+}
+
+fn _mouse_down(btn: i32) -> bool {
+    return is_mouse_button_down(int_to_button(btn));
+}
+
+fn _mouse_pressed(btn: i32) -> bool {
+    return is_mouse_button_pressed(int_to_button(btn));
+}
+
+fn _mouse_released(btn: i32) -> bool {
+    return is_mouse_button_released(int_to_button(btn));
+}
+
 struct App<'a> {
     root: &'a Path,
     lua: Lua<'a>,
@@ -163,6 +189,12 @@ impl<'a> App<'a> {
 
         lua.set("draw_rect", hlua::function5(_draw_rect));
         lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
+
+        lua.set("show_mouse", hlua::function1(show_mouse));
+        lua.set("mouse_pos", hlua::function0(_mouse_pos));
+        lua.set("mouse_down", hlua::function1(_mouse_down));
+        lua.set("mouse_pressed", hlua::function1(_mouse_pressed));
+        lua.set("mouse_released", hlua::function1(_mouse_released));
 
         lua.execute::<()>("print(package.path)").unwrap();
 
@@ -209,10 +241,25 @@ impl<'a> App<'a> {
     }
     fn reload(&mut self, path: PathBuf) {
         // I'll want to test path against the app root here
-        println!("{:?}", path);
-        match &self.lua.execute::<()>("app = system.reload(\"app\")") {
-            Err(e) => println!("{:?}", e),
-            _ => (),
+        // also check mime type is .fnl or .lua
+        let path_s = path.to_str().unwrap();
+        let root_s = self.root.to_str().unwrap();
+        match path_s.strip_prefix(root_s) {
+            Some(s) => {
+                match &self
+                    .lua
+                    .execute::<()>(&format!("system.reload_path({:?})", s))
+                {
+                    Err(e) => println!("{:?}", e),
+                    _ => (),
+                }
+                // use the normal require to update our `app` binding
+                match &self.lua.execute::<()>("app = require(\"app\")") {
+                    Err(e) => println!("{:?}", e),
+                    _ => (),
+                }
+            }
+            None => (),
         }
     }
     fn update(&mut self, dt: f64) {

@@ -22,12 +22,10 @@
     - [ ] watch files, live reload (https://docs.rs/notify/latest/notify/)
   - [ ] error handling (at least just print the error and recover)
 
-- [ ] OS
-  - [ ] 'app' processes, focused app
-  - [ ] `input` and `update` routing
-
-- [ ] multiple applications
-- [ ] input and input routing
+## OS
+- [ ] 'app' processes, focused app
+- [ ] `input` and `update` routing
+- [ ] "operating system" is just a fennel app that can manage window draw_targets, focus
 
 - [ ] img format
 - [ ] img section blitting
@@ -104,7 +102,7 @@ Small fix giving the test app an absolute root path, eventually these will come 
 
 Oh a caveat i was in the app cwd when the first `_handle_unloaded_textures` was called, so image loading worked but the keys were app local.  I probably want to either fully qualify the image paths or have a texture store for each app.
 
-## 5-23-2022
+## 5-24-2022
 
 Yeah lets have a per app texture store, then the memory should be freed as well when an app closes. ... ..... ... OK that didn't work out. I tried changing the lua bindings to closures so they could call app methods for the texture stuff (because app now had the texture store) but to Rust that means moving app into the closure.
 
@@ -113,3 +111,11 @@ Apparently that global Mutex wasn't the worst pattern for this.  I can probably 
 * have a hashmap of hashmaps for each app's uuid
 
 That'll let me avoid collisions and clear texture memory when I destruct the apps.
+
+## 5-25-2022
+
+Fennel game jam started today, going to try and do something platformer-like while working on this this week. Maybe good goals for tonight will be mouse input and cursors.
+
+mouse input done, there's no built in cursor stuff. `show_mouse` is very hit or miss, at least as a runtime thing you toggle.
+
+I got the filewatcher reload to target the exact file, which is great! should be able to reload images in the future as well when they change.

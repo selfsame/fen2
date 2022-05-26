@@ -16,4 +16,17 @@
             (tset package.loaded module-name old))
         (require module-name)))
 
-{:reload reload}
+; looks for packages to reload similar to the path string
+; this won't work for combinations of '.' and '/'
+(fn reload_path [path]
+  (let [stripped (string.gsub (string.gsub (string.gsub (string.gsub path "^/" "") "^\\" "") ".fnl$" "") ".lua$" "")
+        dotted (string.gsub (string.gsub stripped "\\" ".") "/" ".")
+        slashed (string.gsub stripped "\\" "/")]
+    (if (. package.loaded dotted)
+        (reload dotted))
+    (if (and (not (= dotted slashed)) 
+             (. package.loaded slashed))
+        (reload slashed))))
+
+{:reload reload
+ :reload_path reload_path}

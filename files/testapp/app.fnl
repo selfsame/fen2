@@ -28,12 +28,15 @@
     (+ 64 (* (math.sin time) 20)) 
     (+ 54 (* (math.cos time) 20)) 8 0 8 8)
 
-  (draw_rect 30 40 200 100 false)
-  (draw_rect_lines 30 40 200 100 2 true)
+  (draw_rect 100 40 200 100 false)
+  (draw_rect_lines 100 40 200 100 2 true)
+
+  (let [(mx my) (mouse_pos)]
+    (draw_sprite "sprites.png"
+      mx my 0 (if (mouse_down 1) 0 8) 8 8)
+    )
   )
 
-(system.reload "util")
-;(print (fennel.view package.loaded))
-(print (fennel.view frog))
+
 
 {:update update}
