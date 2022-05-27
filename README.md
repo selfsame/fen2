@@ -119,3 +119,7 @@ Fennel game jam started today, going to try and do something platformer-like whi
 mouse input done, there's no built in cursor stuff. `show_mouse` is very hit or miss, at least as a runtime thing you toggle.
 
 I got the filewatcher reload to target the exact file, which is great! should be able to reload images in the future as well when they change.
+
+## 5-26-2022
+
+Going to do jam stuff tonight: working on a sprite sheet and a map editor.
