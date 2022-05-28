@@ -1,3 +1,5 @@
+(var v (require "v"))
+
 (fn make [w h fill]
   (let [res []]
     (for [y 1 h]
@@ -25,4 +27,12 @@
   (if (in-bounds m v)
     (tset (. m (. v :y)) (. v :x) x)))
 
-{:make make :in-bounds in-bounds :gget gget :gset gset}
+(fn p->t [p]
+  (v.vadd (v.vfn (v.vmul p (/ 1 16)) math.floor) (v.v2 1 1)))
+
+(fn t->p [t]
+  (v.vmul (v.vsub t (v.v2 1 1)) 16))
+
+{:make make :in-bounds in-bounds :gget gget :gset gset
+ :p->t p->t
+ :t->p t->p}

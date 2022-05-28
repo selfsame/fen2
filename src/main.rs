@@ -278,7 +278,7 @@ impl<'a> App<'a> {
             .lua
             .execute::<()>(&format!("if app.update then app.update({}) end", dt))
         {
-            Err(e) => (), //println!("{:?}", e),
+            Err(e) => print_lua_error(e),
             _ => (),
         }
     }

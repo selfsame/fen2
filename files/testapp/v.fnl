@@ -13,6 +13,7 @@
 (fn vmag [v] (dist v (v2 0 0)))
 (fn vnorm [v] (vmul v (/ 1 (vmag v))))
 (fn vfn [v f] (v2 (f v.x) (f v.y)))
+(fn vint [v] (vfn v math.floor))
 
 (fn v_in_rect [v va vb]
   (and (< va.x v.x vb.x)
@@ -29,4 +30,5 @@
 :vmag vmag
 :vnorm vnorm
 :vfn vfn
+:vint vint
 :v_in_rect v_in_rect}

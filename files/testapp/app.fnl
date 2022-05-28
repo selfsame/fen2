@@ -7,9 +7,9 @@
 (fn prn [x] (print (fennel.view x)))
 
 ;TODO
-; [x] save and load data
-; [ ] map viewer than has a camera and smooth movement
-; [ ] map bounds
+; [ ] key input binding
+; [ ] arrow key navigation for map editor
+; [ ] decoration map layer
 
 
 (var time 0)
@@ -22,7 +22,9 @@
   :world (grid.make 256 256 -1)}))
 (local state _G.state)
 
+(var window (view.new 10 20 388 388))
 
+(set window.camera (v.v2 250 200))
 
 (fn save-state []
   (util.write-bin "state.data" state))
@@ -39,26 +41,13 @@
     (draw_text label (+ x (/ w 2) (* (/ (# label) 2) -6)) (+ y (/ h 2) 3) (not color))
     (when (and over? (mouse_pressed 1)) (f))))
 
-(fn sprite-idx->v2 [idx size]
-  (v.v2 (% idx size)
-      (math.floor (/ idx size))))
-
-(fn draw-world []
-  (for [x 1 24]
-    (for [y 1 24]
-      (let [tile (grid.gget state.world (v.v2 x y))
-            tpos (v.vmul (sprite-idx->v2 tile 8) 16)
-            p (v.vadd (v.vmul (v.v2 x y) 16) (v.v2 -4 6))]
-        (draw_sprite "world_sprites.png"
-            p.x p.y tpos.x tpos.y 16 16) ))))
-
 (fn handle-draw [] 
   (let [(mx my) (mouse_pos)
-        loc (v.vsub (v.v2 mx my) (v.v2 10 20))
-        tloc (v.vadd (v.vfn (v.vmul loc (/ 1 16)) math.floor) (v.v2 1 1))
-        rloc (v.vadd (v.vmul (v.vsub tloc (v.v2 1 1)) 16) (v.v2 10 20))]
-    (when (v.v_in_rect (v.v2 mx my) (v.v2 10 20) (v.v2 388 388))
-      (draw_rect_lines rloc.x rloc.y 21 21 2 false)
+        tloc (view.screen->tile window (v.v2 mx my))
+        sloc (view.tile->screen window tloc)]   
+    (when (and (v.v_in_rect (v.v2 mx my) window.tl window.br)
+               (grid.in-bounds state.world tloc))
+      (draw_rect_lines (- sloc.x 2) (- sloc.y 2) 20 20 2 false)
       (when (mouse_down 1)
         (grid.gset state.world tloc tile))
       (when (mouse_down 0)
@@ -89,10 +78,10 @@
   (set time (+ time dt))
   (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 580 8 true)
 
-  (draw_rect 10 20 388 388 true)
+  
 
   (draw-tiles)
-  (draw-world)
+  (view.draw window state)
   (handle-draw)
 
   (button 420 200 172 30 "save map" (fn [] (prn "saved map") (save-state))))
