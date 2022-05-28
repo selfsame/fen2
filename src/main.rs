@@ -1,6 +1,6 @@
 #[macro_use]
 extern crate lazy_static;
-use hlua::Lua;
+use hlua::{Lua, LuaError};
 use macroquad::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -171,6 +171,17 @@ fn _mouse_released(btn: i32) -> bool {
     return is_mouse_button_released(int_to_button(btn));
 }
 
+fn print_lua_error(e: &LuaError) {
+    match e {
+        LuaError::ExecutionError(s) => {
+            for s in format!("{:?}", e).split("\\n") {
+                println!("{}", s)
+            }
+        }
+        other => println!("{:?}", other),
+    }
+}
+
 struct App<'a> {
     root: &'a Path,
     lua: Lua<'a>,
@@ -227,7 +238,7 @@ impl<'a> App<'a> {
         lua.execute::<()>("system = require('system')").unwrap();
 
         match lua.execute::<()>("app = require(\"app\")") {
-            Err(e) => println!("LuaError: {:?}", e),
+            Err(e) => print_lua_error(&e),
             res => res.unwrap(),
         }
 
@@ -250,12 +261,12 @@ impl<'a> App<'a> {
                     .lua
                     .execute::<()>(&format!("system.reload_path({:?})", s))
                 {
-                    Err(e) => println!("{:?}", e),
+                    Err(e) => print_lua_error(e),
                     _ => (),
                 }
                 // use the normal require to update our `app` binding
                 match &self.lua.execute::<()>("app = require(\"app\")") {
-                    Err(e) => println!("{:?}", e),
+                    Err(e) => print_lua_error(e),
                     _ => (),
                 }
             }
@@ -267,7 +278,7 @@ impl<'a> App<'a> {
             .lua
             .execute::<()>(&format!("if app.update then app.update({}) end", dt))
         {
-            Err(e) => println!("{:?}", e),
+            Err(e) => (), //println!("{:?}", e),
             _ => (),
         }
     }
