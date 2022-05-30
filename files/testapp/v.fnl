@@ -14,6 +14,7 @@
 (fn vnorm [v] (vmul v (/ 1 (vmag v))))
 (fn vfn [v f] (v2 (f v.x) (f v.y)))
 (fn vint [v] (vfn v math.floor))
+(fn vlimit [v n] (if (> (vmag v) n) (vmul (vnorm v) n) v))
 
 (fn v_in_rect [v va vb]
   (and (< va.x v.x vb.x)
@@ -31,4 +32,5 @@
 :vnorm vnorm
 :vfn vfn
 :vint vint
+:vlimit vlimit
 :v_in_rect v_in_rect}

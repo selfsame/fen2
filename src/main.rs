@@ -4,6 +4,7 @@ use hlua::{Lua, LuaError};
 use macroquad::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::env;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
@@ -12,6 +13,8 @@ use std::sync::Mutex;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant, SystemTime};
+
+mod keys;
 
 lazy_static! {
     static ref BASE_PATH: PathBuf = env::current_dir().unwrap();
@@ -35,11 +38,11 @@ fn window_conf() -> Conf {
 }
 
 // user code will load images into the TEXTURES dict by path name
-async fn _preload_texture(path: String) -> bool {
+async fn _preload_texture(path: String, reload: bool) -> bool {
     let mut textures = TEXTURES.lock().unwrap();
 
     let p = &path;
-    if !textures.contains_key(p) {
+    if reload || !textures.contains_key(p) {
         match load_texture(p).await {
             Ok(t) => {
                 textures.insert(path, t);
@@ -58,7 +61,7 @@ async fn _preload_texture(path: String) -> bool {
 async fn _handle_unloaded_textures() {
     for s in UNLOADED_TEXTURES.lock().unwrap().drain() {
         println!("loading {:?}", s);
-        _preload_texture(s).await;
+        _preload_texture(s, false).await;
     }
 }
 
@@ -171,6 +174,18 @@ fn _mouse_released(btn: i32) -> bool {
     return is_mouse_button_released(int_to_button(btn));
 }
 
+fn _key_down(key: String) -> bool {
+    return is_key_down(keys::keycode(&key));
+}
+
+fn _key_pressed(key: String) -> bool {
+    return is_key_pressed(keys::keycode(&key));
+}
+
+fn _key_released(key: String) -> bool {
+    return is_key_released(keys::keycode(&key));
+}
+
 fn print_lua_error(e: &LuaError) {
     match e {
         LuaError::ExecutionError(s) => {
@@ -206,8 +221,9 @@ impl<'a> App<'a> {
         lua.set("mouse_down", hlua::function1(_mouse_down));
         lua.set("mouse_pressed", hlua::function1(_mouse_pressed));
         lua.set("mouse_released", hlua::function1(_mouse_released));
-
-        lua.execute::<()>("print(package.path)").unwrap();
+        lua.set("key_down", hlua::function1(_key_down));
+        lua.set("key_pressed", hlua::function1(_key_pressed));
+        lua.set("key_released", hlua::function1(_key_released));
 
         // both package.path and fennel.path use '?' as wildcard
         let mut base_copy = BASE_PATH.clone();
@@ -250,23 +266,33 @@ impl<'a> App<'a> {
     fn set_working_directory(&self) {
         env::set_current_dir(&self.root).unwrap();
     }
-    fn reload(&mut self, path: PathBuf) {
-        // I'll want to test path against the app root here
-        // also check mime type is .fnl or .lua
+    async fn reload(&mut self, path: PathBuf) {
         let path_s = path.to_str().unwrap();
         let root_s = self.root.to_str().unwrap();
+        let mime = path.extension().and_then(OsStr::to_str);
+        // strip the app's root
         match path_s.strip_prefix(root_s) {
-            Some(s) => {
-                match &self
-                    .lua
-                    .execute::<()>(&format!("system.reload_path({:?})", s))
-                {
-                    Err(e) => print_lua_error(e),
-                    _ => (),
-                }
-                // use the normal require to update our `app` binding
-                match &self.lua.execute::<()>("app = require(\"app\")") {
-                    Err(e) => print_lua_error(e),
+            Some(_s) => {
+                let s = _s.strip_prefix(&"\\").unwrap_or(_s);
+                println!("{:?} changed", s);
+                match mime {
+                    Some("png") | Some("bmp") => {
+                        _preload_texture(s.to_string(), true).await;
+                    }
+                    Some("lua") | Some("fnl") => {
+                        match &self
+                            .lua
+                            .execute::<()>(&format!("system.reload_path({:?})", s))
+                        {
+                            Err(e) => print_lua_error(e),
+                            _ => (),
+                        }
+                        // use the normal require to update our `app` binding
+                        match &self.lua.execute::<()>("app = require(\"app\")") {
+                            Err(e) => print_lua_error(e),
+                            _ => (),
+                        }
+                    }
                     _ => (),
                 }
             }
@@ -322,7 +348,7 @@ async fn main() {
 
         match rx.try_recv() {
             Ok(notify::DebouncedEvent::NoticeWrite(path)) => {
-                app.reload(path);
+                app.reload(path).await;
             }
             Err(e) => (),
             _ => (),
