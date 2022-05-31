@@ -2,6 +2,8 @@
 (var util (require "util"))
 (var grid (require "grid"))
 (var view (require "view"))
+(var bucket (require "deps/bucket"))
+
 
 (fn _has [e ks]
   (var res true)
@@ -13,6 +15,14 @@
   (fn [es]
     (each [_ e (ipairs es)]
       (if (_has e ks) (f e)))))
+
+; only need to do this once for static guys
+(var stores
+  (system [:pos]
+    (fn [e]
+      (bucket.bstore _G.view_bucket e)
+      (bucket.bstore _G.collision_bucket e)
+      )))
 
 (var sprites 
   (system [:sprite :pos] 
@@ -35,7 +45,10 @@
             x (math.min (math.max e.velocity.x (- maxspeed)) maxspeed)
             y (math.min (math.max e.velocity.y (- 4)) 5)]
         (set e.velocity (v.v2 x y))
-        (set e.pos (v.vadd e.pos e.velocity))) )))
+        (set e.pos (v.vadd e.pos e.velocity)))
+      (bucket.bstore _G.view_bucket e)
+      (bucket.bstore _G.collision_bucket e) 
+      )))
 
 (var physics 
   (system [:velocity :bounds :solid] 
@@ -48,7 +61,7 @@
         (set e.touching-floor 0.12)
         (if (. res 2)
           (do (set e.pos.y (- e.pos.y (. res 2)))
-              (set e.velocity.y (- (* (. res 2) 0.5))))
+              (set e.velocity.y (- (* (. res 2) 0.2))))
           (do (set e.pos.y e.last-pos.y)
               (set e.velocity.y (* e.velocity.y -.1))))))
 
@@ -121,12 +134,35 @@
     :gravity true
     :sprite (v.v2 0 0)
     :solid true
-    :bounds {:ul (v.v2 3 2) :br (v.v2 11 16)}
-  }})
+    :bounds {:ul (v.v2 3 2) :br (v.v2 11 16)}}
+  :jump-bag {
+    :pos (v.v2 0 0)
+    :sprite (v.v2 2 0)
+    :bounds {:ul (v.v2 0 0) :br (v.v2 16 16)}
+    :pickup true}
+  :star {
+    :pos (v.v2 0 0)
+    :sprite (v.v2 3 0)
+    :bounds {:ul (v.v2 0 0) :br (v.v2 16 16)}
+    :pickup true}
+  :spikes {
+    :pos (v.v2 0 0)
+    :sprite (v.v2 1 0)
+    :bounds {:ul (v.v2 0 8) :br (v.v2 16 16)}}
+  :bee {
+    :pos (v.v2 0 0)
+    :sprite (v.v2 6 0)
+    :bounds {:ul (v.v2 3 5) :br (v.v2 13 13)}}
+  })
 
-(fn new [k] (util.copy (. types k)))
+(fn new [k] 
+  (let [e (util.copy (. types k))]
+    (set e.type k) e))
 
 { :new new
+  :types types
+
+  :stores stores
   :sprites sprites
   :gravities gravities
   :velocities velocities

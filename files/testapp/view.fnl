@@ -1,6 +1,6 @@
 (var v (require "v"))
 (var grid (require "grid"))
-
+(var bucket (require "deps/bucket"))
 
 ; a map drawing module
 (print "view.fnl")
@@ -60,17 +60,14 @@
                   tpos.x tpos.y spr-pos.x spr-pos.y 16 16))
               (when tile
                 (draw_sprite "world_sprites.png"
-                  tpos.x tpos.y spr-pos.x spr-pos.y 16 16))
+                  tpos.x tpos.y spr-pos.x spr-pos.y 16 16)) )))))))
 
-                   )))))
-
-    ; clip our map view with white rects
-    (draw_rect  0  0 view.tl.x (+ view.tl.y view.wh.y 16) false)
-    (draw_rect  0  0 (+ view.tl.x view.wh.x 16) view.tl.y  false)
-    (draw_rect  (+ view.tl.x view.wh.x)  0 18 (+ view.tl.y view.wh.y 16)  false)
-    (draw_rect  0  (+ view.tl.y view.wh.y) (+ view.tl.x view.wh.x 16) (+ view.tl.y view.wh.y 16)  false) ))
-
-
+(fn mask-view [view]
+  ; clip our map view with white rects
+  (draw_rect  0  0 view.tl.x (+ view.tl.y view.wh.y 16) false)
+  (draw_rect  0  0 (+ view.tl.x view.wh.x 100) view.tl.y  false)
+  (draw_rect  (+ view.tl.x view.wh.x)  0 300 (+ view.tl.y view.wh.y 16)  false)
+  (draw_rect  0  (+ view.tl.y view.wh.y) (+ view.tl.x view.wh.x 16) (+ view.tl.y view.wh.y 16)  false))
 
 { :new new :draw draw :screen->tile screen->tile :tile->screen tile->screen
-  :world->screen world->screen }
+  :world->screen world->screen :mask-view mask-view}

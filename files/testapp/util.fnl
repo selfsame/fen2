@@ -72,6 +72,13 @@
 ; :f tween callback (takes 1 argument - the object)
 ; :l lerping function
 
+(fn add [m v] (table.insert m v))
+
+(fn filter [f col]
+  (let [a []]
+    (each [i v (pairs col)]
+      (if (f v) (add a v))) a))
+
 { :write-data write-data
   :read-data read-data
   :write-bin write-bin
@@ -81,4 +88,6 @@
   :vlerp vlerp
   :tween tween
   :wait wait
-  :update-tweens update-tweens}
+  :update-tweens update-tweens
+  :add add
+  :filter filter}
