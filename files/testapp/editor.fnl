@@ -94,6 +94,17 @@
         (fn [] (set current-entity k)))
       (set i (+ i 1)))))
 
+;run this when the entity composition changes
+(fn update-saved-entities []
+  (set state.entities 
+    (util.map 
+      (fn [e]
+        (let [n (entity.new e.type)]
+          (set n.pos e.pos) n))
+      state.entities)))
+
+(update-saved-entities)
+
 (fn update [dt]
   (set _G.window window)
   (let [pan (v.v2 (if (key_down "left") -1  (key_down "right") 1 0)
@@ -106,7 +117,7 @@
   (view.draw window state)
   (entity.sprites state.entities)
   (view.mask-view window)
-  
+
   (if (= layer :entities) 
     (do
       (entity-chooser)

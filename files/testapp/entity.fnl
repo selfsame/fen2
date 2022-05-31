@@ -21,8 +21,7 @@
   (system [:pos]
     (fn [e]
       (bucket.bstore _G.view_bucket e)
-      (bucket.bstore _G.collision_bucket e)
-      )))
+      (bucket.bstore _G.collision_bucket e))))
 
 (var sprites 
   (system [:sprite :pos] 
@@ -124,8 +123,27 @@
             (if (key_down "space")
               (set e.velocity.y (+ e.velocity.y (* -19 _G.dt)))
               (set e.jumping false))
-            (set e.jumping false)))
-        ))))
+            (set e.jumping false))) ))))
+
+; honestly i think just deleting it from the stores is enough
+(fn delete-entity [e]
+  (bucket.bdel _G.view_bucket e)
+  (bucket.bdel _G.collision_bucket e))
+
+; player centric at the moment
+(var collisions 
+  (system [:bounds] 
+    (fn [e]
+      (let [near (bucket.bget _G.collision_bucket e.pos)]
+        (each [i o (pairs near)]
+          (when (and (not (= o e)) o.bounds)
+            (when (v.overlap 
+                    (v.vadd e.pos e.bounds.ul)
+                    (v.vadd e.pos e.bounds.br)
+                    (v.vadd o.pos o.bounds.ul)
+                    (v.vadd o.pos o.bounds.br))
+              (delete-entity o)
+            )))))))
 
 (var types {
   :player {
@@ -152,6 +170,9 @@
   :bee {
     :pos (v.v2 0 0)
     :sprite (v.v2 6 0)
+    :velocity (v.v2 0 0)
+    ;:gravity true
+    :solid true
     :bounds {:ul (v.v2 3 5) :br (v.v2 13 13)}}
   })
 
@@ -167,4 +188,5 @@
   :gravities gravities
   :velocities velocities
   :physics physics
-  :controls controls}
+  :controls controls
+  :collisions collisions}

@@ -20,6 +20,14 @@
   (and (< va.x v.x vb.x)
        (< va.y v.y vb.y)))
 
+(fn overlap [a1 a2 b1 b2]
+  (not 
+    (or 
+      (or (> a1.x b2.x)
+          (< a2.x b1.x))
+      (or (> a1.y b2.y)
+          (< a2.y b1.y)))))
+
 {:v2 v2
 :v2= v2=
 :vadd vadd
@@ -33,4 +41,5 @@
 :vfn vfn
 :vint vint
 :vlimit vlimit
-:v_in_rect v_in_rect}
+:v_in_rect v_in_rect
+:overlap overlap}

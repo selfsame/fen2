@@ -74,6 +74,11 @@
 
 (fn add [m v] (table.insert m v))
 
+(fn map [f col]
+  (let [a []]
+    (each [i v (pairs col)]
+      (tset a i (f v))) a))
+
 (fn filter [f col]
   (let [a []]
     (each [i v (pairs col)]
@@ -90,4 +95,5 @@
   :wait wait
   :update-tweens update-tweens
   :add add
+  :map map
   :filter filter}

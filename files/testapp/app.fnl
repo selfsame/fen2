@@ -16,7 +16,8 @@
 ;TODO
 ; [x] decoration map layer
 ; [ ] tile collision returns offset
-; [ ] player - entity collision
+; [x] player - entity collision
+; [ ] entities are literal data, should be 
 ; [ ] jump pickups
 ; [ ] star pickups
 ; [x] key to reset game
@@ -48,7 +49,9 @@
 (var guys [])
 
 (fn new-game []
+  (set player (entity.new :player))
   (set guys (util.copy state.entities))
+  (set _G.guys guys)
   (table.insert guys player)
   (set _G.view_bucket {:size 600 :prop "pos"})
   (set _G.collision_bucket {:size 16 :prop "pos"})
@@ -62,14 +65,12 @@
 
 (new-game)
 
-(prn player)
-
-
 (fn update [dt]
   (set _G.time (+ _G.time dt))
   (set _G.dt dt)
   (if (key_pressed "escape") (set _G.mode :menu))
   (if (key_pressed "r") (restart))
+  (if (key_pressed "n") (new-game))
   (when (= _G.mode :editor)
     (editor.update dt))
   (when (= _G.mode :game)
@@ -77,6 +78,7 @@
     (view.draw window state)
     (let [viewable (bucket.bget _G.view_bucket window.camera)]
       (entity.controls [player])
+      (entity.collisions [player])
       (entity.sprites viewable)
       (entity.gravities viewable)
       (entity.velocities viewable)
