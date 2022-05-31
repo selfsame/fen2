@@ -37,7 +37,7 @@
                (grid.in-bounds target tloc))
       (draw_text (fennel.view tloc) 10 15 true)
       (draw_rect_lines (- sloc.x 2) (- sloc.y 2) 20 20 2 false)
-      (when (mouse_down 1)
+      (when (and (mouse_down 1) (< _G.mouse_bad 0))
         (grid.gset target tloc tile))
       (when (mouse_down 0)
         (grid.gset target tloc -1)))))
@@ -56,9 +56,6 @@
           (set guy.pos (grid.t->p tloc))
           (table.insert state.entities guy)))
       (when (mouse_pressed 0)
-        (_G.prn (util.filter 
-            (fn [e] (not (v.v2= e.tile-pos tloc)))
-            state.entities))
         (set state.entities 
           (util.filter 
             (fn [e] (not (v.v2= e.tile-pos tloc)))
@@ -100,13 +97,15 @@
     (util.map 
       (fn [e]
         (let [n (entity.new e.type)]
-          (set n.pos e.pos) n))
+          (set n.pos e.pos)
+          (set n.tile-pos e.tile-pos) n))
       state.entities)))
 
 (update-saved-entities)
 
 (fn update [dt]
   (set _G.window window)
+  (set _G.mouse_bad (- _G.mouse_bad 1))
   (let [pan (v.v2 (if (key_down "left") -1  (key_down "right") 1 0)
                   (if (key_down "up") -1  (key_down "down") 1 0))
         pan (v.vmul pan 10 dt)]

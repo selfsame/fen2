@@ -28,8 +28,12 @@
     (fn [e]
       (let [wpos (view.world->screen _G.window e.pos)
             spr-pos (v.vmul e.sprite 16 16)]
-        (draw_sprite "entities.png"
-                  wpos.x wpos.y spr-pos.x spr-pos.y 16 16)))))
+        (if (and e.invincible (> e.invincible 0))
+          (if (< (math.cos (* _G.time 70)) 0.3)
+            (draw_sprite "entities.png"
+                    wpos.x wpos.y spr-pos.x spr-pos.y 16 16))
+          (draw_sprite "entities.png"
+                    wpos.x wpos.y spr-pos.x spr-pos.y 16 16))))))
 
 (var gravities 
   (system [:gravity :velocity] 
@@ -46,45 +50,59 @@
         (set e.velocity (v.v2 x y))
         (set e.pos (v.vadd e.pos e.velocity)))
       (bucket.bstore _G.view_bucket e)
-      (bucket.bstore _G.collision_bucket e) 
-      )))
+      (bucket.bstore _G.collision_bucket e))))
+
+(fn vertical-collisions [e]
+  ;floor
+  (let [floor   (or (grid.point-solid-offset (v.vadd e.pos (v.v2 (- e.bounds.br.x 1) e.bounds.br.y)) e.velocity)
+                    (grid.point-solid-offset (v.vadd e.pos (v.v2 (+ e.bounds.ul.x 1) e.bounds.br.y)) e.velocity))
+        ceiling (or (grid.point-solid-offset (v.vadd e.pos (v.v2 (- e.bounds.br.x 1) e.bounds.ul.y)) e.velocity)
+                    (grid.point-solid-offset (v.vadd e.pos (v.v2 (+ e.bounds.ul.x 1) e.bounds.ul.y)) e.velocity))]
+    (if floor
+      (do 
+        (set e.touching-floor 0.2)
+        (set e.pos.y (+ e.pos.y floor.offset.y))
+        (set e.velocity.y (* e.velocity.y -.1)))
+
+      ceiling
+      (do 
+        (set e.pos.y (- e.pos.y ceiling.offset.y))
+        (set e.velocity.y (* e.velocity.y -.1))
+        (set e.jumping false)))
+    (or floor ceiling)))
+
+(fn horizontal-collisions [e]
+  (let [left (or (grid.point-solid-offset (v.vadd e.pos (v.v2 (- e.bounds.ul.x 1) (- e.bounds.br.y 2))) e.velocity)
+                 (grid.point-solid-offset (v.vadd e.pos (v.v2 (- e.bounds.ul.x 1) (+ e.bounds.ul.y 2))) e.velocity))
+
+        right (or (grid.point-solid-offset (v.vadd e.pos (v.v2 (+ e.bounds.br.x 1) (+ e.bounds.ul.y 2))) e.velocity)
+                  (grid.point-solid-offset (v.vadd e.pos (v.v2 (+ e.bounds.br.x 1) (- e.bounds.br.y 2))) e.velocity))
+        any (or left right)]
+    (if 
+      left
+      (set e.pos.x (+ e.pos.x left.offset.x))
+      right
+      (set e.pos.x (+ e.pos.x right.offset.x)))
+    (when any
+      (if any.slope
+        (do 
+          (set e.touching-floor 0.2)
+          (set e.pos.y (+ e.pos.y any.offset.y))
+          (set e.velocity.y (+ e.velocity.y (* any.offset.y 1))))
+        (do 
+          (set e.velocity.x (* e.velocity.x -.2))
+          (set e.touching-wall 0.1))))
+    any))
 
 (var physics 
   (system [:velocity :bounds :solid] 
     (fn [e]
-      ;floor
-      (let [res (or (grid.point-in-solid-tile (v.vadd e.pos (v.v2 (- e.bounds.br.x 1) e.bounds.br.y)))
-                (grid.point-in-solid-tile (v.vadd e.pos (v.v2 (+ e.bounds.ul.x 1) e.bounds.br.y))))]
 
-      (when res
-        (set e.touching-floor 0.12)
-        (if (. res 2)
-          (do (set e.pos.y (- e.pos.y (. res 2)))
-              (set e.velocity.y (- (* (. res 2) 0.2))))
-          (do (set e.pos.y e.last-pos.y)
-              (set e.velocity.y (* e.velocity.y -.1))))))
-
-      ;ceiling
-      (when (or (grid.point-in-solid-tile (v.vadd e.pos (v.v2 (- e.bounds.br.x 1) e.bounds.ul.y)))
-                (grid.point-in-solid-tile (v.vadd e.pos (v.v2 (+ e.bounds.ul.x 1) e.bounds.ul.y))))
-        (set e.pos.y e.last-pos.y)
-        (set e.velocity.y (* e.velocity.y -.1))
-        (set e.jumping false))
-
-      ;walls
-      ;TODO probably need to get collision offset because one can still get stuck 
-      (let [res (or (grid.point-in-solid-tile (v.vadd e.pos (v.v2 e.bounds.ul.x (- e.bounds.br.y 2))))
-                (grid.point-in-solid-tile (v.vadd e.pos (v.v2 e.bounds.br.x (- e.bounds.br.y 2))))
-
-                (grid.point-in-solid-tile (v.vadd e.pos (v.v2 e.bounds.ul.x (+ e.bounds.ul.y 1))))
-                (grid.point-in-solid-tile (v.vadd e.pos (v.v2 e.bounds.br.x (+ e.bounds.ul.y 1)))))]
-        (when res
-          (if (. res 2)
-              (do (set e.pos.y (- e.pos.y (. res 2)))
-                  (set e.touching-floor 0.12))
-              (do (set e.pos.x e.last-pos.x)
-                  (set e.velocity.x (* e.velocity.x -.2))
-                  (set e.touching-wall 0.1)))))
+      (if (> (math.abs e.velocity.x) (math.abs e.velocity.y))
+        (or (horizontal-collisions e)
+            (vertical-collisions e))
+        (or (vertical-collisions e)
+            (horizontal-collisions e)))
 
       (when e.touching-floor
         (set e.touching-wall false)
@@ -109,15 +127,17 @@
       (let [speed (if e.touching-floor (* 18 _G.dt) (* 8 _G.dt))]
         (if (key_down "left") (set e.velocity.x (+ e.velocity.x (- speed))))
         (if (key_down "right") (set e.velocity.x (+ e.velocity.x speed)))
-        (if (key_pressed "space")
-          (set e.jump_pressed_at _G.time))
-        (when (and 
-                (not e.jumping)
-                e.touching-floor 
-                e.jump_pressed_at 
-                (< (- _G.time e.jump_pressed_at) 0.1))
-          (set e.jumping true)
-          (set e.velocity.y (* -60 _G.dt)))
+        (when (> _G.jumps 0)
+          (if (key_pressed "space")
+            (set e.jump_pressed_at _G.time))
+          (when (and 
+                  (not e.jumping)
+                  e.touching-floor 
+                  e.jump_pressed_at 
+                  (< (- _G.time e.jump_pressed_at) 0.12))
+            (set e.jumping true)
+            (set _G.jumps (- _G.jumps 1))
+            (set e.velocity.y (* -60 _G.dt))))
         (if e.jumping
           (if (< (- _G.time e.jump_pressed_at) 0.15)
             (if (key_down "space")
@@ -134,6 +154,9 @@
 (var collisions 
   (system [:bounds] 
     (fn [e]
+
+      (set e.invincible (- e.invincible _G.dt))
+
       (let [near (bucket.bget _G.collision_bucket e.pos)]
         (each [i o (pairs near)]
           (when (and (not (= o e)) o.bounds)
@@ -142,7 +165,16 @@
                     (v.vadd e.pos e.bounds.br)
                     (v.vadd o.pos o.bounds.ul)
                     (v.vadd o.pos o.bounds.br))
-              (delete-entity o)
+              (when (and o.hurt (<= e.invincible 0))
+                (set _G.health (- _G.health o.hurt))
+                (set e.invincible 1))
+              (when o.pickup 
+                (when (= o.type :jump-bag)
+                  (set _G.jumps (+ _G.jumps 1))
+                  (set _G.max_jumps (+ _G.max_jumps 1)))
+                (when (= o.type :star)
+                  (set _G.stars (+ _G.stars 1)))
+                (delete-entity o))
             )))))))
 
 (var types {
@@ -152,7 +184,8 @@
     :gravity true
     :sprite (v.v2 0 0)
     :solid true
-    :bounds {:ul (v.v2 3 2) :br (v.v2 11 16)}}
+    :bounds {:ul (v.v2 4 3) :br (v.v2 10 16)}
+    :invincible 0}
   :jump-bag {
     :pos (v.v2 0 0)
     :sprite (v.v2 2 0)
@@ -166,14 +199,16 @@
   :spikes {
     :pos (v.v2 0 0)
     :sprite (v.v2 1 0)
-    :bounds {:ul (v.v2 0 8) :br (v.v2 16 16)}}
+    :bounds {:ul (v.v2 0 8) :br (v.v2 16 16)}
+    :hurt 1}
   :bee {
     :pos (v.v2 0 0)
     :sprite (v.v2 6 0)
     :velocity (v.v2 0 0)
     ;:gravity true
     :solid true
-    :bounds {:ul (v.v2 3 5) :br (v.v2 13 13)}}
+    :bounds {:ul (v.v2 3 5) :br (v.v2 13 13)}
+    :hurt 1}
   })
 
 (fn new [k] 

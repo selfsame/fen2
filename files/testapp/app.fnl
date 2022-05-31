@@ -14,15 +14,13 @@
 
 
 ;TODO
-; [x] decoration map layer
-; [ ] tile collision returns offset
-; [x] player - entity collision
-; [ ] entities are literal data, should be 
+; [ ] hurt collisions
+; [ ] hurt animation
 ; [ ] jump pickups
 ; [ ] star pickups
-; [x] key to reset game
-; [ ] level layout
 ; [ ] win condition
+; [ ] level layout
+
 
 
 ; [ ] sounds
@@ -56,14 +54,25 @@
   (set _G.view_bucket {:size 600 :prop "pos"})
   (set _G.collision_bucket {:size 16 :prop "pos"})
   (entity.stores guys)
-  (entity.stores guys))
+
+  (set _G.max_jumps 1)
+  (set _G.jumps 1)
+  (set _G.max_health 1)
+  (set _G.health 1)
+
+  (set _G.stars 0)
+  (set _G.max_stars (# (util.filter (fn [e] (= e.type :star)) guys))))
 
 (fn restart [] 
-  ;TODO should swap player in guys for fresh table
+  ;TODO should swap player in guys for fresh table?
   (set player.pos (. (entity.new :player) :pos))
-  (set player.velocity (v.v2 0 0)))
+  (set player.velocity (v.v2 0 0))
+  (set _G.jumps _G.max_jumps)
+  (set _G.health _G.max_health))
 
 (new-game)
+
+(print _G.max_stars)
 
 (fn update [dt]
   (set _G.time (+ _G.time dt))
@@ -91,17 +100,24 @@
     (if player.touching-wall
       (draw_text "WALL" 100 470 true))
 
+    (draw_text (.. "JUMPS: " _G.jumps) 20 12 true)
+    (var hpbar "")
+    (for [i 1 _G.health]
+      (set hpbar (.. hpbar "*")))
+    (draw_text (.. "HITS: " hpbar) 100 12 true)
+
     ; camera should stay within X distance of player
     (let [cam-dist (v.dist window.camera-target player.pos)]
       (if (> cam-dist 50)
         (let [to-player (v.vmul (v.vnorm (v.vsub player.pos window.camera-target)) (- cam-dist 50))]
           (set window.camera-target (v.vadd window.camera-target to-player)))))
-    
     (set window.camera (util.vlerp window.camera window.camera-target 0.1)))
+
   (when (= _G.mode :menu)
     (ui.button 220 160 200 30 "start game" (fn [] (set _G.mode :game)))
     (ui.button 220 200 200 30 "map editor" 
       (fn [] 
+        (set _G.mouse_bad 20)
         (set _G.editor_window.camera (util.copy player.pos))
         (set _G.editor_window.camera-target (util.copy player.pos))
         (set _G.mode :editor))))
