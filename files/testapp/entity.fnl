@@ -4,7 +4,8 @@
 (var view (require "view"))
 (var bucket (require "deps/bucket"))
 
-
+;per technomancy
+;(fn has? [tbl x] (accumulate [h? false _ y (ipairs tbl) :until h?] (= x y)))
 (fn _has [e ks]
   (var res true)
   (each [_ n (ipairs ks)]
@@ -47,7 +48,8 @@
       (set e.last-pos (util.copy e.pos))
       (let [maxspeed (or e.maxspeed 2)
             x (math.min (math.max e.velocity.x (- maxspeed)) maxspeed)
-            y (math.min (math.max e.velocity.y (- 4)) 5)]
+            y (if e.gravity (math.min (math.max e.velocity.y (- 4)) 5)
+                            (math.min (math.max e.velocity.y (- maxspeed)) maxspeed))]
         (set e.velocity (v.v2 x y))
         (set e.pos (v.vadd e.pos e.velocity)))
       (bucket.bstore _G.view_bucket e)
@@ -185,8 +187,21 @@
                     (set _G.max_jumps (+ _G.max_jumps 1)))
                   (when (= o.type :star)
                     (set _G.stars (+ _G.stars 1)))
-                  (delete-entity o))
-              ))))))))
+                  (when (= o.type :heart)
+                    (set _G.health (+ _G.health 1))
+                    (set _G.max_health (+ _G.max_health 1)))
+                  (delete-entity o)) ))))))))
+
+(var ais 
+  (system [:ai] 
+    (fn [e]
+      (when (= e.ai :wander)
+        (set e.velocity.x (+ e.velocity.x (* (math.random -3 3) _G.dt)))
+        (set e.velocity.y (+ e.velocity.y (* (math.random -3 3) _G.dt)))
+        )
+        
+      )))
+
 
 (var types {
   :player {
@@ -208,6 +223,11 @@
     :sprite (v.v2 3 0)
     :bounds {:ul (v.v2 0 0) :br (v.v2 16 16)}
     :pickup true}
+  :heart {
+    :pos (v.v2 0 0)
+    :sprite (v.v2 3 1)
+    :bounds {:ul (v.v2 0 0) :br (v.v2 16 16)}
+    :pickup true}
   :spikes {
     :pos (v.v2 0 0)
     :sprite (v.v2 1 0)
@@ -217,14 +237,16 @@
     :pos (v.v2 0 0)
     :sprite (v.v2 6 0)
     :velocity (v.v2 0 0)
-    ;:gravity true
+    :ai :wander
     :solid true
     :bounds {:ul (v.v2 3 5) :br (v.v2 13 13)}
+    :maxspeed 1
     :hurt 1}
   })
 
 (fn new [k] 
   (let [e (util.copy (. types k))]
+    (set e.initial-pos e.pos)
     (set e.type k) e))
 
 { :new new
@@ -236,4 +258,5 @@
   :velocities velocities
   :physics physics
   :controls controls
-  :collisions collisions}
+  :collisions collisions
+  :ais ais}

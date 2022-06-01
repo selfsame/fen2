@@ -70,20 +70,22 @@
                   tpos.x tpos.y spr-pos.x spr-pos.y 16 16))
               (when tile
                 (draw_sprite "world_sprites.png"
-                  tpos.x tpos.y spr-pos.x spr-pos.y 16 16)) )))))
-    (each [i note (ipairs _G.notifications)]
-      (let [_top (+ view.tl.y 6 note.y)
-            midpoint (v.v2 (+ view.tl.x (* view.wh.x 0.5)) (math.max 0 _top))
-            width 300
-            height (if (< _top 0) (+ 60 _top) 60)
-            mheight (* (# note.message) 12)]
+                  tpos.x tpos.y spr-pos.x spr-pos.y 16 16)) )))))))
 
-        (draw_rect (- midpoint.x (* width 0.5)) midpoint.y width height true)
-        (draw_rect_lines (- midpoint.x (* width 0.5)) midpoint.y width height  1 false)
-        (draw_rect_lines (+ (- midpoint.x (* width 0.5)) 3) (+ midpoint.y 3) (- width 6) (- height 6)  2 false)
-        (each [i line (ipairs note.message)]
-          (draw_text line (- midpoint.x (* (# line) 5.3 0.5)) 
-            (+ midpoint.y -2 (* height 0.5) (- (* mheight 0.5)) (* i 12)) false)) ))))
+(fn draw-notifications [window]
+  (each [i note (ipairs _G.notifications)]
+    (let [_top (+ window.tl.y 6 note.y)
+          midpoint (v.v2 (+ window.tl.x (* window.wh.x 0.5)) (math.max 0 _top))
+          width 300
+          height (if (< _top 0) (+ 60 _top) 60)
+          mheight (* (# note.message) 12)]
+
+      (draw_rect (- midpoint.x (* width 0.5)) midpoint.y width height true)
+      (draw_rect_lines (- midpoint.x (* width 0.5)) midpoint.y width height  1 false)
+      (draw_rect_lines (+ (- midpoint.x (* width 0.5)) 3) (+ midpoint.y 3) (- width 6) (- height 6)  2 false)
+      (each [i line (ipairs note.message)]
+        (draw_text line (- midpoint.x (* (# line) 5.3 0.5)) 
+          (+ midpoint.y -2 (* height 0.5) (- (* mheight 0.5)) (* i 12)) false)))))
 
 (fn mask-view [view]
   ; clip our map view with white rects
@@ -94,4 +96,4 @@
 
 { :new new :draw draw :screen->tile screen->tile :tile->screen tile->screen
   :world->screen world->screen :mask-view mask-view
-  :notification notification}
+  :notification notification :draw-notifications draw-notifications}

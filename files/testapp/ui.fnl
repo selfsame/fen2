@@ -20,5 +20,15 @@
     (draw_text label (+ x 20) (+ y 11) true)
     (when (and over? (mouse_pressed 1)) (f))))
 
+(fn icon-bar [cnt max x y width sprite]
+  (let [spr-pos (v.vmul sprite 16)
+        fill-pos (v.vadd spr-pos (v.v2 16 0))]
+    (for [i 0 (- max 1)]
+      (let [iy (math.floor (/ i width))
+            ix (% i width)
+            spr (if (< i cnt) fill-pos spr-pos)]
+      (draw_sprite "entities.png"
+        (+ x (* ix 12)) (+ y (* iy 12)) spr.x spr.y 16 16))
+      )))
 
-{:button button :checkbox checkbox}
+{:button button :checkbox checkbox :icon-bar icon-bar}
