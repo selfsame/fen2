@@ -20,13 +20,13 @@
 ; [x] star pickups
 ; [x] dead state
 ; [x] in game notifications (drop down message rect)
-; [ ] win condition (just a notification)
-; [ ] content
-; [ ] simple title screen 
+; [x] win condition (just a notification)
+; [x] content
+; [x] simple title screen 
 ; [ ] fix multiple jump used bug
 
 
-; [ ] sounds
+; [x] sounds
 ; [ ] fx entities
 
 
@@ -42,6 +42,19 @@
 (load_img "background_sprites.png")
 (load_img "entities.png")
 
+(load_sound "audio/blip.wav")
+(load_sound "audio/buzz.wav")
+(load_sound "audio/death1.wav")
+(load_sound "audio/death2.wav")
+(load_sound "audio/death3.wav")
+(load_sound "audio/hurt1.wav")
+(load_sound "audio/jump.wav")
+(load_sound "audio/jump2.wav")
+(load_sound "audio/jump3.wav")
+(load_sound "audio/pickup1.wav")
+(load_sound "audio/pickup2.wav")
+(load_sound "audio/pickup3.wav")
+(load_sound "audio/restart.wav")
 
 (var window (view.new 170 20 450 440))
 
@@ -68,6 +81,7 @@
   (set _G.max_stars (# (util.filter (fn [e] (= e.type :star)) guys))))
 
 (fn restart [] 
+  (play_sound "audio/restart.wav" false 0.3)
   ;TODO should swap player in guys for fresh table?
   (set _G.notifications [])
   (bucket.bdel _G.view_bucket player)
@@ -99,7 +113,7 @@
   (if (key_pressed "escape") (set _G.mode :menu))
   (if (key_pressed "e") (open-editor))
   (when (key_pressed "r") (set _G.mode :game) (restart))
-  (when (key_pressed "n") (set _G.mode :game) (new-game))
+  (when (key_pressed "key0") (set _G.mode :game) (new-game))
   (when (= _G.mode :editor)
     (editor.update dt))
   (when (= _G.mode :game)
@@ -136,6 +150,7 @@
     (draw_text "SPACE TO JUMP"  20 300 true)
     (draw_text "ARROWS TO MOVE"  20 320 true)
     (draw_text "R TO RESET"  20 340 true)
+    (draw_text "ESC TO MENU"  20 360 true)
 
     (draw_text "FIND JUMP BAGS"  20 420 true)
     (draw_text "FIND HEARTS"  20 440 true)
@@ -150,6 +165,7 @@
 
   (when (= _G.mode :menu)
     (draw_rect 0 0 640 480 true)
+    (draw_text "selfsame.itch.io presents"  258 50 false)
     (draw_img "title.png" 100 80)
     (ui.button 220 280 200 30 "enter game" (fn [] (set _G.mode :game)))
     (ui.button 220 320 200 30 "new game" (fn [] (new-game) (set _G.mode :game)))

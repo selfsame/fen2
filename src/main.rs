@@ -1,6 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 use hlua::{Lua, LuaError};
+use macroquad::audio::{load_sound, play_sound, play_sound_once, PlaySoundParams, Sound};
 use macroquad::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::env;
@@ -26,6 +27,8 @@ lazy_static! {
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
     static ref UNLOADED_TEXTURES: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
+    static ref SOUNDS: Mutex<HashMap<String, Sound>> = Mutex::new(HashMap::new());
+    static ref UNLOADED_SOUNDS: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
 }
 
 fn window_conf() -> Conf {
@@ -67,6 +70,51 @@ async fn _handle_unloaded_textures() {
 
 fn _preload_texture_sync(path: String) {
     UNLOADED_TEXTURES.lock().unwrap().insert(path);
+}
+
+async fn _preload_sound(path: String, reload: bool) -> bool {
+    let mut sounds = SOUNDS.lock().unwrap();
+
+    let p = &path;
+    if reload || !sounds.contains_key(p) {
+        match load_sound(p).await {
+            Ok(t) => {
+                sounds.insert(path, t);
+                return true;
+            }
+            Err(e) => {
+                println!("{:?}", e);
+                return false;
+            }
+        }
+    } else {
+        return true;
+    }
+}
+
+async fn _handle_unloaded_sounds() {
+    for s in UNLOADED_SOUNDS.lock().unwrap().drain() {
+        println!("loading {:?}", s);
+        _preload_sound(s, false).await;
+    }
+}
+
+fn _preload_sound_sync(path: String) {
+    UNLOADED_SOUNDS.lock().unwrap().insert(path);
+}
+
+fn _play_sound(path: String, looped: bool, volume: f32) {
+    let sounds = SOUNDS.lock().unwrap();
+    match sounds.get(&path) {
+        Some(t) => play_sound(
+            *t,
+            PlaySoundParams {
+                looped: looped,
+                volume: volume,
+            },
+        ),
+        None => println!("Error: no sound {}", &path),
+    }
 }
 
 fn _draw_texture(path: String, x: u32, y: u32) {
@@ -213,6 +261,9 @@ impl<'a> App<'a> {
         lua.set("draw_img", hlua::function3(_draw_texture));
         lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
 
+        lua.set("load_sound", hlua::function1(_preload_sound_sync));
+        lua.set("play_sound", hlua::function3(_play_sound));
+
         lua.set("draw_rect", hlua::function5(_draw_rect));
         lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
 
@@ -336,6 +387,7 @@ async fn main() {
     loop {
         app.set_working_directory();
         _handle_unloaded_textures().await;
+        _handle_unloaded_sounds().await;
         clear_background(WHITE);
 
         let dt = instant.elapsed().as_secs_f64() - elapsed;

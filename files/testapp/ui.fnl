@@ -7,7 +7,7 @@
     (draw_rect x y w h color)
     (draw_rect_lines x y w h 1 (not color))
     (draw_text label (+ x (/ w 2) (* (/ (# label) 2) -6)) (+ y (/ h 2) 3) (not color))
-    (when (and over? (mouse_pressed 1)) (f))))
+    (when (and over? (mouse_pressed 1)) (play_sound "audio/blip.wav" false 0.3) (f))))
 
 (fn checkbox [x y label checked f]
   (let [(mx my) (mouse_pos)
@@ -18,7 +18,7 @@
     (draw_rect (+ x 1) (+ y 1) 14 14 false)
     (when checked (draw_rect (+ x 2) (+ y 2) 12 12 true))
     (draw_text label (+ x 20) (+ y 11) true)
-    (when (and over? (mouse_pressed 1)) (f))))
+    (when (and over? (mouse_pressed 1)) (play_sound "audio/blip.wav" false 0.3) (f))))
 
 (fn icon-bar [cnt max x y width sprite]
   (let [spr-pos (v.vmul sprite 16)
@@ -28,7 +28,6 @@
             ix (% i width)
             spr (if (< i cnt) fill-pos spr-pos)]
       (draw_sprite "entities.png"
-        (+ x (* ix 12)) (+ y (* iy 12)) spr.x spr.y 16 16))
-      )))
+        (+ x (* ix 12)) (+ y (* iy 12)) spr.x spr.y 16 16)))))
 
 {:button button :checkbox checkbox :icon-bar icon-bar}

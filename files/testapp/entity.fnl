@@ -141,7 +141,8 @@
                     (< (- _G.time e.jump_pressed_at) 0.12))
               (set e.jumping true)
               (set e.velocity.y (* -60 _G.dt))
-              (set _G.jumps (- _G.jumps 1))              
+              (set _G.jumps (- _G.jumps 1))
+              (play_sound (util.rand-nth ["audio/jump.wav" "audio/jump2.wav" "audio/jump3.wav"]) false 1)         
               (when (= 0 _G.jumps)
                 (view.notification [
                       (util.rand-nth ["You've run out of jumps.." "That was your last jump.." "Out of jumps.."]) 
@@ -150,7 +151,8 @@
             (if (< (- _G.time e.jump_pressed_at) 0.15)
               (if (key_down "space")
                 (set e.velocity.y (+ e.velocity.y (* -19 _G.dt)))
-                (set e.jumping false))
+                (do (set e.jumping false)
+                    (set e.touching-floor 0)))
               (set e.jumping false))) )))))
 
 ; honestly i think just deleting it from the stores is enough
@@ -176,22 +178,31 @@
                 (when (and o.hurt (<= e.invincible 0))
                   (set _G.health (- _G.health o.hurt))
                   (set e.invincible 1)
+                  (if (= o.type :bee) 
+                      (play_sound "audio/buzz.wav" false 1)
+                      (play_sound "audio/hurt1.wav" false 1))
                   (when (<= _G.health 0)
                     (set e.dead true)
+                    (play_sound (util.rand-nth ["audio/death1.wav" "audio/death2.wav" "audio/death3.wav"]) false 0.7)
                     (view.notification [
                       (util.rand-nth ["looks like you've died" "an unfortunate end" "a fatal mistake" "you've died" "you've perished"]) 
                       "press 'r' to reset"])))
                 (when o.pickup 
                   (when (= o.type :jump-bag)
+                    (play_sound "audio/pickup3.wav" false 1)
                     (set _G.jumps (+ _G.jumps 1))
                     (set _G.max_jumps (+ _G.max_jumps 1)))
                   (when (= o.type :star)
+                    (play_sound "audio/pickup3.wav" false 1)
+                    (play_sound "audio/pickup1.wav" false 1)
                     (set _G.stars (+ _G.stars 1))
                     (when (= _G.stars _G.max_stars)
                       (view.notification ["CONGRATULATIONS"
                       "You've Won the Game!"
                       "Thank You For Playing!"])))
                   (when (= o.type :heart)
+                    (play_sound "audio/pickup2.wav" false 1)
+                    (play_sound "audio/pickup1.wav" false 1)
                     (set _G.health (+ _G.health 1))
                     (set _G.max_health (+ _G.max_health 1)))
                   (delete-entity o)) ))))))))
