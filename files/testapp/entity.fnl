@@ -186,7 +186,11 @@
                     (set _G.jumps (+ _G.jumps 1))
                     (set _G.max_jumps (+ _G.max_jumps 1)))
                   (when (= o.type :star)
-                    (set _G.stars (+ _G.stars 1)))
+                    (set _G.stars (+ _G.stars 1))
+                    (when (= _G.stars _G.max_stars)
+                      (view.notification ["CONGRATULATIONS"
+                      "You've Won the Game!"
+                      "Thank You For Playing!"])))
                   (when (= o.type :heart)
                     (set _G.health (+ _G.health 1))
                     (set _G.max_health (+ _G.max_health 1)))
