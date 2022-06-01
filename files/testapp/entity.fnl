@@ -27,7 +27,8 @@
   (system [:sprite :pos] 
     (fn [e]
       (let [wpos (view.world->screen _G.window e.pos)
-            spr-pos (v.vmul e.sprite 16 16)]
+            sprite (or (if e.dead e.dead_sprite) e.sprite)
+            spr-pos (v.vmul sprite 16 16)]
         (if (and e.invincible (> e.invincible 0))
           (if (< (math.cos (* _G.time 70)) 0.3)
             (draw_sprite "entities.png"
@@ -124,26 +125,31 @@
 (var controls 
   (system [:velocity :pos] 
     (fn [e]
-      (let [speed (if e.touching-floor (* 18 _G.dt) (* 8 _G.dt))]
-        (if (key_down "left") (set e.velocity.x (+ e.velocity.x (- speed))))
-        (if (key_down "right") (set e.velocity.x (+ e.velocity.x speed)))
-        (when (> _G.jumps 0)
-          (if (key_pressed "space")
-            (set e.jump_pressed_at _G.time))
-          (when (and 
-                  (not e.jumping)
-                  e.touching-floor 
-                  e.jump_pressed_at 
-                  (< (- _G.time e.jump_pressed_at) 0.12))
-            (set e.jumping true)
-            (set _G.jumps (- _G.jumps 1))
-            (set e.velocity.y (* -60 _G.dt))))
-        (if e.jumping
-          (if (< (- _G.time e.jump_pressed_at) 0.15)
-            (if (key_down "space")
-              (set e.velocity.y (+ e.velocity.y (* -19 _G.dt)))
-              (set e.jumping false))
-            (set e.jumping false))) ))))
+      (when (not e.dead)
+        (let [speed (if e.touching-floor (* 18 _G.dt) (* 8 _G.dt))]
+          (if (key_down "left") (set e.velocity.x (+ e.velocity.x (- speed))))
+          (if (key_down "right") (set e.velocity.x (+ e.velocity.x speed)))
+          (when (> _G.jumps 0)
+            (if (key_pressed "space")
+              (set e.jump_pressed_at _G.time))
+            (when (and 
+                    (not e.jumping)
+                    e.touching-floor 
+                    e.jump_pressed_at 
+                    (< (- _G.time e.jump_pressed_at) 0.12))
+              (set e.jumping true)
+              (set e.velocity.y (* -60 _G.dt))
+              (set _G.jumps (- _G.jumps 1))              
+              (when (= 0 _G.jumps)
+                (view.notification [
+                      (util.rand-nth ["You've run out of jumps.." "That was your last jump.." "Out of jumps.."]) 
+                      "press 'r' when you're ready"]))))
+          (if e.jumping
+            (if (< (- _G.time e.jump_pressed_at) 0.15)
+              (if (key_down "space")
+                (set e.velocity.y (+ e.velocity.y (* -19 _G.dt)))
+                (set e.jumping false))
+              (set e.jumping false))) )))))
 
 ; honestly i think just deleting it from the stores is enough
 (fn delete-entity [e]
@@ -156,26 +162,31 @@
     (fn [e]
 
       (set e.invincible (- e.invincible _G.dt))
-
-      (let [near (bucket.bget _G.collision_bucket e.pos)]
-        (each [i o (pairs near)]
-          (when (and (not (= o e)) o.bounds)
-            (when (v.overlap 
-                    (v.vadd e.pos e.bounds.ul)
-                    (v.vadd e.pos e.bounds.br)
-                    (v.vadd o.pos o.bounds.ul)
-                    (v.vadd o.pos o.bounds.br))
-              (when (and o.hurt (<= e.invincible 0))
-                (set _G.health (- _G.health o.hurt))
-                (set e.invincible 1))
-              (when o.pickup 
-                (when (= o.type :jump-bag)
-                  (set _G.jumps (+ _G.jumps 1))
-                  (set _G.max_jumps (+ _G.max_jumps 1)))
-                (when (= o.type :star)
-                  (set _G.stars (+ _G.stars 1)))
-                (delete-entity o))
-            )))))))
+      (when (not e.dead)
+        (let [near (bucket.bget _G.collision_bucket e.pos)]
+          (each [i o (pairs near)]
+            (when (and (not (= o e)) o.bounds)
+              (when (v.overlap 
+                      (v.vadd e.pos e.bounds.ul)
+                      (v.vadd e.pos e.bounds.br)
+                      (v.vadd o.pos o.bounds.ul)
+                      (v.vadd o.pos o.bounds.br))
+                (when (and o.hurt (<= e.invincible 0))
+                  (set _G.health (- _G.health o.hurt))
+                  (set e.invincible 1)
+                  (when (<= _G.health 0)
+                    (set e.dead true)
+                    (view.notification [
+                      (util.rand-nth ["looks like you've died" "an unfortunate end" "a fatal mistake" "you've died" "you've perished"]) 
+                      "press 'r' to reset"])))
+                (when o.pickup 
+                  (when (= o.type :jump-bag)
+                    (set _G.jumps (+ _G.jumps 1))
+                    (set _G.max_jumps (+ _G.max_jumps 1)))
+                  (when (= o.type :star)
+                    (set _G.stars (+ _G.stars 1)))
+                  (delete-entity o))
+              ))))))))
 
 (var types {
   :player {
@@ -183,6 +194,7 @@
     :velocity (v.v2 0 0)
     :gravity true
     :sprite (v.v2 0 0)
+    :dead_sprite (v.v2 0 1)
     :solid true
     :bounds {:ul (v.v2 4 3) :br (v.v2 10 16)}
     :invincible 0}

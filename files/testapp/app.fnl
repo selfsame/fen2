@@ -14,10 +14,12 @@
 
 
 ;TODO
-; [ ] hurt collisions
-; [ ] hurt animation
-; [ ] jump pickups
-; [ ] star pickups
+; [x] hurt collisions
+; [x] hurt animation
+; [x] jump pickups
+; [x] star pickups
+; [x] dead state
+; [ ] in game notifications (drop down message rect)
 ; [ ] win condition
 ; [ ] level layout
 
@@ -65,14 +67,17 @@
 
 (fn restart [] 
   ;TODO should swap player in guys for fresh table?
-  (set player.pos (. (entity.new :player) :pos))
-  (set player.velocity (v.v2 0 0))
+  (set _G.notifications [])
+  (bucket.bdel _G.view_bucket player)
+  (bucket.bdel _G.collision_bucket player)
+  (set player (entity.new :player))
+  (entity.stores [player])
+  ;(set _G.guys (util.filter (fn [e] (not (= e.type :player))) guys))
+  ;(table.insert _G.guys player)
   (set _G.jumps _G.max_jumps)
   (set _G.health _G.max_health))
 
 (new-game)
-
-(print _G.max_stars)
 
 (fn update [dt]
   (set _G.time (+ _G.time dt))
@@ -114,8 +119,9 @@
     (set window.camera (util.vlerp window.camera window.camera-target 0.1)))
 
   (when (= _G.mode :menu)
-    (ui.button 220 160 200 30 "start game" (fn [] (set _G.mode :game)))
-    (ui.button 220 200 200 30 "map editor" 
+    (ui.button 220 200 200 30 "enter game" (fn [] (set _G.mode :game)))
+    (ui.button 220 240 200 30 "new game" (fn [] (new-game) (set _G.mode :game)))
+    (ui.button 220 280 200 30 "map editor" 
       (fn [] 
         (set _G.mouse_bad 20)
         (set _G.editor_window.camera (util.copy player.pos))

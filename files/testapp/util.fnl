@@ -49,7 +49,7 @@
   (local ts {})
   (each [_ t (ipairs _ts)]
     (when t.o
-      (set t.d (- t.d 1))
+      (set t.d (- t.d _G.dt))
       (var r (- 1 (/ t.d t.s)))
       (if (and t.ei t.eo)
           (set r (or (and (< r 0.5) (/ (t.ei (* r 2)) 2))
@@ -74,6 +74,35 @@
 
 (fn add [m v] (table.insert m v))
 
+(fn del [col o]
+  (var found false)
+  (each [i v (ipairs col)]
+    (when (and (not found) (= v o))
+      (table.remove col i)
+      (set found true))))
+
+(fn identity [x] x)
+
+(fn inc [n] (+ n 1))
+
+(fn dec [n] (- n 1))
+
+(fn nil? [x] (= x nil))
+
+(fn true? [x] (if x true false))
+
+(fn empty? [x] (= 0 (# x)))
+
+(fn first [col] (. col 1))
+
+(fn last [col] (. col (# col)))
+
+(fn rest [col] 
+  (let [a []]
+    (if (< (# col) 2) a
+      (do (for [i 2 (# col)]
+        (tset a (dec i) (. col i))) a))))
+
 (fn map [f col]
   (let [a []]
     (each [i v (pairs col)]
@@ -84,6 +113,16 @@
     (each [i v (pairs col)]
       (if (f v) (add a v))) a))
 
+(fn reduce [f val col]
+  (if (nil? col)
+    (reduce f (first val) (rest val))
+    (if (empty? col) val
+      (reduce f (f val (first col)) (rest col)))))
+
+(fn rand [n] (math.random n))
+
+(fn rand-nth [col] (. col (rand (# col))))
+
 { :write-data write-data
   :read-data read-data
   :write-bin write-bin
@@ -92,8 +131,13 @@
   :lerp lerp
   :vlerp vlerp
   :tween tween
+  :_ts _ts
+  :powf powf
   :wait wait
   :update-tweens update-tweens
   :add add
+  :del del
   :map map
-  :filter filter}
+  :filter filter
+  :reduce reduce
+  :rand-nth rand-nth}
