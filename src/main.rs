@@ -29,6 +29,7 @@ lazy_static! {
     static ref UNLOADED_TEXTURES: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
     static ref SOUNDS: Mutex<HashMap<String, Sound>> = Mutex::new(HashMap::new());
     static ref UNLOADED_SOUNDS: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
+    static ref MOUSE: Mutex<(f32, f32)> = Mutex::new((0., 0.));
 }
 
 fn window_conf() -> Conf {
@@ -206,7 +207,7 @@ fn int_to_button(i: i32) -> MouseButton {
 }
 
 fn _mouse_pos() -> (i32, i32) {
-    let (x, y) = mouse_position();
+    let (x, y) = *MOUSE.lock().unwrap();
     return (x as i32, y as i32);
 }
 
@@ -384,7 +385,35 @@ async fn main() {
     app_root.push("testapp");
     let mut app = App::new(app_root.as_path());
 
+    let render = render_target(640, 480);
+    render.texture.set_filter(FilterMode::Nearest);
+    let mut render_cam = Camera2D::from_display_rect(Rect {
+        x: 0.,
+        y: 0.,
+        w: 640.,
+        h: 480.,
+    });
+
+    render_cam.render_target = Some(render);
+    render_cam.zoom.y = render_cam.zoom.y * -1.;
+
     loop {
+        let (width, height, scale) = if screen_width() >= 1280. && screen_height() >= 960. {
+            (1280., 960., 2.)
+        } else if screen_width() >= 640. && screen_height() >= 480. {
+            (640., 480., 1.)
+        } else {
+            (320., 240., 0.5)
+        };
+        let (mx, my) = mouse_position();
+
+        *MOUSE.lock().unwrap() = (
+            ((mx - ((screen_width() - width) * 0.5)) / scale).round(),
+            ((my - ((screen_height() - height) * 0.5)) / scale).round(),
+        );
+
+        set_camera(&render_cam);
+
         app.set_working_directory();
         _handle_unloaded_textures().await;
         _handle_unloaded_sounds().await;
@@ -397,6 +426,20 @@ async fn main() {
 
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
+
+        set_default_camera();
+        clear_background(BLACK);
+
+        draw_texture_ex(
+            render.texture,
+            ((screen_width() - width) / 2.).floor(),
+            ((screen_height() - height) / 2.).floor(),
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(width, height)),
+                ..Default::default()
+            },
+        );
 
         match rx.try_recv() {
             Ok(notify::DebouncedEvent::NoticeWrite(path)) => {

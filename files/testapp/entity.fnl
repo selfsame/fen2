@@ -46,12 +46,12 @@
   (system [:velocity :pos] 
     (fn [e]
       (set e.last-pos (util.copy e.pos))
-      (let [maxspeed (or e.maxspeed 2)
+      (let [maxspeed (or e.maxspeed 2.2)
             x (math.min (math.max e.velocity.x (- maxspeed)) maxspeed)
             y (if e.gravity (math.min (math.max e.velocity.y (- 4)) 5)
                             (math.min (math.max e.velocity.y (- maxspeed)) maxspeed))]
         (set e.velocity (v.v2 x y))
-        (set e.pos (v.vadd e.pos e.velocity)))
+        (set e.pos (v.vadd e.pos (v.vmul e.velocity (* 46 _G.dt)))))
       (bucket.bstore _G.view_bucket e)
       (bucket.bstore _G.collision_bucket e))))
 
@@ -63,7 +63,7 @@
                     (grid.point-solid-offset (v.vadd e.pos (v.v2 (+ e.bounds.ul.x 1) e.bounds.ul.y)) e.velocity))]
     (if floor
       (do 
-        (set e.touching-floor 0.2)
+        (set e.touching-floor 0.4)
         (set e.pos.y (+ e.pos.y floor.offset.y))
         (set e.velocity.y (* e.velocity.y -.1)))
 
@@ -89,7 +89,7 @@
     (when any
       (if any.slope
         (do 
-          (set e.touching-floor 0.2)
+          (set e.touching-floor 0.4)
           (set e.pos.y (+ e.pos.y any.offset.y))
           (set e.velocity.y (+ e.velocity.y (* any.offset.y 1))))
         (do 
@@ -109,13 +109,13 @@
 
       (when e.touching-floor
         (set e.touching-wall false)
-        (set e.velocity.x (* e.velocity.x 0.8))
+        (set e.velocity.x (* e.velocity.x (- 1 (* 9 _G.dt))))
         (set e.touching-floor (- e.touching-floor _G.dt))
         (if (< e.touching-floor 0)
           (set e.touching-floor false))) 
 
       (when e.touching-wall
-        (if (> e.velocity.y 0) (set e.velocity.y (* e.velocity.y 0.95)))
+        (if (> e.velocity.y 0) (set e.velocity.y (* e.velocity.y (- 1 (* 2.5 _G.dt)))))
         (set e.touching-wall (- e.touching-wall _G.dt))
         (if (< e.touching-wall 0)
           (set e.touching-wall false))))))
@@ -128,7 +128,7 @@
   (system [:velocity :pos] 
     (fn [e]
       (when (not e.dead)
-        (let [speed (if e.touching-floor (* 18 _G.dt) (* 8 _G.dt))]
+        (let [speed (if e.touching-floor (* 20 _G.dt) (* 9 _G.dt))]
           (if (key_down "left") (set e.velocity.x (+ e.velocity.x (- speed))))
           (if (key_down "right") (set e.velocity.x (+ e.velocity.x speed)))
           (when (> _G.jumps 0)
@@ -140,17 +140,18 @@
                     e.jump_pressed_at 
                     (< (- _G.time e.jump_pressed_at) 0.12))
               (set e.jumping true)
-              (set e.velocity.y (* -60 _G.dt))
-              (set _G.jumps (- _G.jumps 1))
+              (set e.jump_pressed_at _G.time) ;allow full jump charge on a early button press
+              ;(set e.velocity.y -1)
+              ;(set _G.jumps (- _G.jumps 1))
               (play_sound (util.rand-nth ["audio/jump.wav" "audio/jump2.wav" "audio/jump3.wav"]) false 1)         
               (when (= 0 _G.jumps)
                 (view.notification [
                       (util.rand-nth ["You've run out of jumps.." "That was your last jump.." "Out of jumps.."]) 
                       "press 'r' when you're ready"]))))
           (if e.jumping
-            (if (< (- _G.time e.jump_pressed_at) 0.15)
+            (if (< (- _G.time e.jump_pressed_at) 0.20)
               (if (key_down "space")
-                (set e.velocity.y (+ e.velocity.y (* -19 _G.dt)))
+                (set e.velocity.y (+ e.velocity.y (* -24 _G.dt)))
                 (do (set e.jumping false)
                     (set e.touching-floor 0)))
               (set e.jumping false))) )))))

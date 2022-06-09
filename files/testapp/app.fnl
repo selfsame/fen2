@@ -14,17 +14,12 @@
 
 
 ;TODO
-; [x] hurt collisions
-; [x] hurt animation
-; [x] jump pickups
-; [x] star pickups
-; [x] dead state
-; [x] in game notifications (drop down message rect)
-; [x] win condition (just a notification)
-; [x] content
-; [x] simple title screen 
-; [ ] fix multiple jump used bug
-
+; [ ] jumpminster more content
+; [ ] build gather files script
+; [x] bstore sync on reload
+; [x] velocity delta issues
+; [x] 640x480 render texture, center view, upscale on bigger window
+; [ ] clean up main readme
 
 ; [x] sounds
 ; [ ] fx entities
@@ -87,11 +82,11 @@
   (bucket.bdel _G.view_bucket player)
   (bucket.bdel _G.collision_bucket player)
   (set player (entity.new :player))
-  (entity.stores [player])
   (set _G.guys (util.filter (fn [e] (not (= e.type :player))) guys))
   (table.insert _G.guys player)
   (each [i guy (ipairs _G.guys)]
-    (set guy.pos guy.initial-pos))
+    (set guy.pos guy.initial-pos)
+    (entity.stores [guy]))
 
   (set _G.jumps _G.max_jumps)
   (set _G.health _G.max_health))
@@ -108,8 +103,9 @@
   (set _G.mode :editor))
 
 (fn update [dt]
-  (set _G.time (+ _G.time dt))
-  (set _G.dt dt)
+  (local _dt (if (> dt 0.05) 0.05 dt))
+  (set _G.time (+ _G.time _dt))
+  (set _G.dt _dt)
   (if (key_pressed "escape") (set _G.mode :menu))
   (if (key_pressed "e") (open-editor))
   (when (key_pressed "r") (set _G.mode :game) (restart))
@@ -120,18 +116,20 @@
     (set _G.window window)
     (view.draw window state)
     (let [viewable (bucket.bget _G.view_bucket window.camera)]
+      
       (entity.controls [player])
-      (entity.collisions [player])
       (entity.sprites viewable)
       (entity.gravities viewable)
       (entity.velocities viewable)
+      (entity.collisions [player])
+
       (entity.physics viewable)
       (entity.ais viewable))
     (view.draw-notifications window)
     (view.mask-view window state) 
 
 
-    (draw_text "JUMPMINSTER" 170 8 true)
+    (draw_text "JUMPMINSTER" 170 12 true)
 
     (if player.touching-floor
       (draw_text "FLOOR" 170 470 true))
@@ -170,7 +168,7 @@
     (ui.button 220 280 200 30 "enter game" (fn [] (set _G.mode :game)))
     (ui.button 220 320 200 30 "new game" (fn [] (new-game) (set _G.mode :game)))
     (ui.button 220 360 200 30 "map editor" open-editor))
-  (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 580 8 true))
+  (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 580 12 true))
 
 
 {:update update}
