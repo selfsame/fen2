@@ -14,6 +14,7 @@ use std::sync::Mutex;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant, SystemTime};
+use path_slash::PathBufExt as _;
 
 mod keys;
 
@@ -24,6 +25,7 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
+    static ref APPS: Mutex<HashMap<String, App<'static>>> = Mutex::new(HashMap::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
     static ref UNLOADED_TEXTURES: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
@@ -39,6 +41,11 @@ fn window_conf() -> Conf {
         window_height: 480,
         ..Default::default()
     }
+}
+
+// a and b are slash paths
+fn slashpath_join(a:&str, b:&str) -> String {
+    PathBuf::from_slash(a).join(PathBuf::from_slash(b)).into_os_string().into_string().unwrap()
 }
 
 // user code will load images into the TEXTURES dict by path name
@@ -235,6 +242,19 @@ fn _key_released(key: String) -> bool {
     return is_key_released(keys::keycode(&key));
 }
 
+
+// System bindings
+
+fn _launch_process(path: String) -> String {
+    unsafe {
+        let p = PathBuf::from(&path).as_path();
+        let app = App::new(&p, false);
+        APPS.lock().unwrap().insert(path.clone(), app);
+        return path;
+    }
+}
+
+
 fn print_lua_error(e: &LuaError) {
     match e {
         LuaError::ExecutionError(s) => {
@@ -247,12 +267,14 @@ fn print_lua_error(e: &LuaError) {
 }
 
 struct App<'a> {
-    root: &'a Path,
+    root: PathBuf,
     lua: Lua<'a>,
+    is_system: bool
 }
 
 impl<'a> App<'a> {
-    fn new(root: &'a Path) -> App<'a> {
+    fn new(r: &Path, is_system: bool) -> App {
+        let  root = PathBuf::from(r);
         env::set_current_dir(&root).unwrap();
         let mut lua = Lua::new();
         lua.openlibs();
@@ -313,6 +335,7 @@ impl<'a> App<'a> {
         App {
             lua: lua,
             root: root,
+            is_system: is_system
         }
     }
     fn set_working_directory(&self) {
@@ -383,7 +406,7 @@ async fn main() {
     let mut app_root = BASE_PATH.clone();
     app_root.push("files");
     app_root.push("testapp");
-    let mut app = App::new(app_root.as_path());
+    let mut app = App::new(app_root.as_path(), true);
 
     let render = render_target(640, 480);
     render.texture.set_filter(FilterMode::Nearest);

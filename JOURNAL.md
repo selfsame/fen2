@@ -1,0 +1,190 @@
+
+## 5-19-2022
+
+Figured out https://docs.rs/notify/5.0.0-pre.15/notify/ has a `try_recv` to not block, seems to be reliable (i.e. not missing any events). Next I want to match on `NoticeWrite` event and reload the specific lua file in question.
+
+Reading https://technomancy.us/189 to figure out how to reload fennel files, it mentions `package.path` which might help set each app's root path.
+
+Believe i have a reload fn (had to slightly modify the emacs quoted one from that link) but I'm having trouble understanding the lua and fennel module system, mainly i just want to call a fn i defined in the previous require
+
+## 5-20-2022
+
+The `reload` works so next I want to move it into some sort of utility module. After that I'd like to have file changes reload the specific module that file created (I'm guessing there might be some metadata in the package table).  I imagine it will be tricky testing paths against each other.
+
+I have a `system.fnl` module for general fennel code.  Wanted to move the test drawing snippet into `app.fnl` but realized I would need to pump an `update`, tried setting that up by calling `app.update` if it exists but after reload `app` is nil.. oh duh reload probably needs to return something.
+
+This is working great, some TODO for tomorrow:
+
+-[x] delta in update
+-[ ] clear screen
+-[ ] input polling
+
+## 5-21-2022
+
+Good morning, I am reading about https://docs.rs/notify/latest/notify/enum.DebouncedEvent.html, think `NoticeWrite` really indicates some writing events are starting so maybe i should use `Write` with like a 100ms debounce window. Actually now that I play with it the double reload when i first start changing a file is not from two notify events, must be some fennel thing with `reload`?
+
+"clear screen" brings up a consideration, am i going to be drawing to one texture or providing bindings to create textures that get drawn in the shader.
+
+Tinkering with macroquad's text rendering, I want pixel perfect bitmap fonts, it uses truetype.  There's no exposed filtering options for the text renderer, but it looks like if I guess the right font size with a pixel ttf font i can get no dithering (using size 16 with http://www.pentacom.jp/pentacom/bitfontmaker2/gallery/?id=381 for example). I can just hard code the font sizes and force the user to use integer text locations.
+
+I still need to figure out how to make the fonts global, the ttf loader is async which i can't put in lazy static i guess.
+
+Ended up using a `Mutex<HashMap<String, Font>>` which like.. doesn't feel great but it's working.
+
+## 5-22-2022
+
+Good morning, I would like to sort out sprite rendering today.  Had some issues loading textures because it was async and lua bindings are sync, ended up with a mutex hashset of image paths to load that gets drained in the main loop. (goofy but it's working). 
+
+Next i probably need to look into 
+- [ ] image alpha
+- [ ] clipping (maybe render textures? all I really need is squares)
+
+Closing thoughts for the night, `(print (fennel.view package.loaded))` shows all loaded code keyed by the module path, apparently they can have `/` or `.` separators
+
+```
+   :files.testapp.util {:frog #<function: 000001A42BF9DDE0>}
+   :files/testapp/app {:update #<function: 000001A42C080940>}
+   :files/testapp/util {:frog #<function: 000001A42C1CA680>}
+```
+
+I'll just need to identify which of these path fragment keys match the file path that changed and `reload` all matching keys
+
+## 5-23-2022
+
+Let's try setting the working directory for the lua processes and resolving the specific file that changed.
+
+changing the working directory to the "app" but first problem is my fennel and system files are elsewhere, worried that lua needs to be spun up with the right cwd for it's searchers. Guess i could load those two files from rust/hlua.. 
+
+OK thinking my easiest route is to add BASE_PATH to package.path, then i should be able to load `fennel.lua` and `system.fnl` with no fuss. ... This worked (had to add it to fennel.path as well) My app is running with it's own root path, and seems like `load_img` and `require` is also working from this new root.
+
+Small fix giving the test app an absolute root path, eventually these will come from scanning the user file system.
+
+Oh a caveat i was in the app cwd when the first `_handle_unloaded_textures` was called, so image loading worked but the keys were app local.  I probably want to either fully qualify the image paths or have a texture store for each app.
+
+## 5-24-2022
+
+Yeah lets have a per app texture store, then the memory should be freed as well when an app closes. ... ..... ... OK that didn't work out. I tried changing the lua bindings to closures so they could call app methods for the texture stuff (because app now had the texture store) but to Rust that means moving app into the closure.
+
+Apparently that global Mutex wasn't the worst pattern for this.  I can probably do something like:
+* give each app a uuid
+* have a hashmap of hashmaps for each app's uuid
+
+That'll let me avoid collisions and clear texture memory when I destruct the apps.
+
+## 5-25-2022
+
+Fennel game jam started today, going to try and do something platformer-like while working on this this week. Maybe good goals for tonight will be mouse input and cursors.
+
+mouse input done, there's no built in cursor stuff. `show_mouse` is very hit or miss, at least as a runtime thing you toggle.
+
+I got the filewatcher reload to target the exact file, which is great! should be able to reload images in the future as well when they change.
+
+## 5-26-2022
+
+Going to do jam stuff tonight: working on a sprite sheet and a map editor.
+
+## 6-7-2022
+
+Thinking over a few things:
+* Maybe i want to stick with hlua for the speed, and i can just ship with a lua .so for linux.
+* I can just use render textures for my windows. It would be nice to expose a scissor clip though.
+
+There's https://github.com/not-fl3/macroquad/blob/4d383d6b69d6c7a3a540d61283d108b6c86980b6/src/quad_gl.rs#L791 but I'm not sure how to access the QuadGL instance, `macroquad::get_context()` is private.
+
+(answer from macroquad discord: `unsafe { get_internal_gl() }.quad_gl.scissor(...)`)
+
+## 6-09-2022
+
+Still thinking about how I want to handle windows.  An issue with creating render textures for each window is they might be weird to resize. An advantage is that apps don't have to draw themselves every frame, and you can have nice shuffled windows.  You could also do windows with clipping but it's less feasable.  Clipping would be an important feature in general in `app` space though (think scrolling textboxes).
+
+The top level `system` process would also need a handle (literal) on windows and their driving texture/clipping bounds. I am unsure on the relationship of the `system` to app processes, like, in terms of execution ordering.
+
+### system only calls
+
+* `launch_process(path) -> process_id` Instantiates a lua process with a handle id
+
+* `close_process(process_id)`
+
+
+
+* `assign_render_texture(render_texture_id, process_id)` ????
+
+* `destroy_render_texture(render_texture_id)`
+
+* `update_process(process_id)` queues the process for execution ( or maybe switches to the process's context to update it then continues? )
+
+### app calls
+
+* `quit()` closes the app process
+
+* `new_window(w, h, title) -> render_texture_id`
+
+* `close_window(render_texture_id)`
+
+* `set_window(render_texture_id)` activates the render texture and camera
+
+* `window_size(render_texture_id) -> int, int` gets the `system` determined size of the window
+
+* `window_is_open(render_texture_id) -> bool` health check in case the system decided to close this window
+
+* `set_clip(x, y, w, h)` sets a scissor clip
+
+* `clear_clip()`
+
+
+
+# 6-10-2022
+
+Still chewing the problem of how to have apps request windows managed by a userland `system` without any kind of direct lua to lua communication between the two. (not against that just don't want to puzzle it out)... Perhaps apps can request 0-N render_texture handles and focus them for drawing.  The `system` can access info on an app's windows (i.e. render_textures) so that it can draw them how and where it pleases. `system` can also set a size value on app windows and close them.
+
+^ this works for my use cases (vintage mac style window management and maybe a hybrid tiling window manager). It's nicely decoupled too, the worst scenario i can think of is an app requesting mutiple windows on a system that doesn't handle that (or that wants to force a size the app doesn't draw for)
+
+# 10-14-2022
+
+Picking this back up! Giving a fennel conf talk in about a month on it.  Hoping to have the system / process abstaction locked down by that point.  When I last worked on this I was stuck on how to make App structs globally accessible, as their lifetime prevented them from being in a Mutex Hashmap.  Tonight I am trying to figure out just how I can do App::new(&Path) with a non static String for the path. I think since it takes a borrowed reference there's no way this could work. I can't just take an owned PathBuf because it's size isn't known at compile time.  Maybe i can take something that's on the heap?
+
+# 10-16-2022
+
+Yeah instead of borrowing a Path and having to use a lifetime for the App struct that contained it I just had to use PathBuf so the struct owns it.  Everything I had wanted to do should be straight forward now!
+
+Next steps: 
+[ ] Have system launch another process and pass update to it every frame
+[ ] sandboxed file listing
+[ ] start working through system fns described above
+
+# 10-17-2022
+
+System App gets some extra bindings. Successfully loaded a second process BUT now I'll have to ensure the working directory of the loaded process is set.  System can be expected to refer to files relative to files/system so that's fine. I think what's going on is the launched process sets the working directory correctly but all the macroquad resource loading is done in the main loop which still has the system working directory set.
+
+# 10-18-2022
+
+Exhausted tonight but my thought is that i need to prepend resource paths with the working directory.  I can create a closure around the lua create_function calls to curry an argument, but the `root` path string doesn't live long enough for that. I may need to init the lua stuff after the App struct has been created.
+
+Notes about sandboxing Lua: http://lua-users.org/wiki/SandBoxes
+
+# 10-19-2022
+
+Having a real hard time getting information into the function closure (my app's path so i can prepend it to load calls). Going to read a bit about closures and moving.
+
+I ended up putting a clone of the root path string into the lua_ctx globals, which I can then use inside the lua function closure. The combined paths are a mix of separators which is wierd to me: `loading "../testapp\\background_sprites.png"`, they also seem to be relative from the system's path which i guess is ok. OK actually these paths are not working, I'll have to puzzle out how to combine them properly.
+
+I am noticing my system setup is super slow to start up, need to dig into what's going on
+
+# 10-20-2022
+
+I now realize that loading the mixed paths was working correctly, but the retrieval by path key is still using the relative path. This is something that happens every draw command so I probably want to be a little picky about how I resolve this:
+
+a) do the same path combining in the draw call, see if it's actually slow
+b) do a simpler path concat
+c) return a key in the load call (probably just a hash of the full path). I'd lose some ergonomics about using string literals without saving a reference in fennel
+d) keep a resource hash on the App, then I could continue to use relative keys
+
+would be *really* helpfull if I could get access to the App struct inside the lua_ctx function calls
+
+# 10-21-2022
+
+I am considering switching dev back to `hlua` branch as the bindings are simpler and I could access the App struct.
+
+# 10-23-2022
+
+Brough `hlua` up to speed but the Lua struct requires a lifetime and I get into similar issues as 10 days ago. Not feeling great about how stalled I am with this.
