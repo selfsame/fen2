@@ -178,6 +178,7 @@ a) do the same path combining in the draw call, see if it's actually slow
 b) do a simpler path concat
 c) return a key in the load call (probably just a hash of the full path). I'd lose some ergonomics about using string literals without saving a reference in fennel
 d) keep a resource hash on the App, then I could continue to use relative keys
+e) keep a lookup table on the App for local->global keys
 
 would be *really* helpfull if I could get access to the App struct inside the lua_ctx function calls
 
@@ -187,4 +188,12 @@ I am considering switching dev back to `hlua` branch as the bindings are simpler
 
 # 10-23-2022
 
-Brough `hlua` up to speed but the Lua struct requires a lifetime and I get into similar issues as 10 days ago. Not feeling great about how stalled I am with this.
+Brought `hlua` up to speed but the Lua struct requires a lifetime and I get into similar issues as 10 days ago. Not feeling great about how stalled I am with this.
+
+# 10-24-2022
+
+trying to pass `PathBuf::from(&path).as_path()` into my `App<'a>` is failing with "argument requires that borrow lasts for `'static`". I am confused because I thought the argument was not used in the struct itself (it's used to create a PathBuf). 
+* I could try to use an owned pathbuf as an argument
+* I could try to annotate the argument with a 'b lifetime
+
+Ended up using PathBuf as the argument type and putting a lifetime on the App return value, everything seems to be working now so later tonight I should be able to get back to the global resource loading issue.

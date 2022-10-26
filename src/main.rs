@@ -246,12 +246,10 @@ fn _key_released(key: String) -> bool {
 // System bindings
 
 fn _launch_process(path: String) -> String {
-    unsafe {
-        let p = PathBuf::from(&path).as_path();
-        let app = App::new(&p, false);
-        APPS.lock().unwrap().insert(path.clone(), app);
-        return path;
-    }
+    let mut app = App::new(PathBuf::from(&path), false);
+    app.init();
+    APPS.lock().unwrap().insert(path.clone(), app);
+    return path;
 }
 
 
@@ -273,37 +271,54 @@ struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    fn new(r: &Path, is_system: bool) -> App {
-        let  root = PathBuf::from(r);
+    fn new(root: PathBuf, is_system: bool) -> App<'a> {
         env::set_current_dir(&root).unwrap();
         let mut lua = Lua::new();
-        lua.openlibs();
-        lua.set("set_pixel", hlua::function3(set_pixel));
-        lua.set("draw_text", hlua::function4(draw_text));
-        lua.set("load_img", hlua::function1(_preload_texture_sync));
-        lua.set("draw_img", hlua::function3(_draw_texture));
-        lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
+        
 
-        lua.set("load_sound", hlua::function1(_preload_sound_sync));
-        lua.set("play_sound", hlua::function3(_play_sound));
+        
 
-        lua.set("draw_rect", hlua::function5(_draw_rect));
-        lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
+        App {
+            lua: lua,
+            root: root,
+            is_system: is_system
+        }
+    }
 
-        lua.set("show_mouse", hlua::function1(show_mouse));
-        lua.set("mouse_pos", hlua::function0(_mouse_pos));
-        lua.set("mouse_down", hlua::function1(_mouse_down));
-        lua.set("mouse_pressed", hlua::function1(_mouse_pressed));
-        lua.set("mouse_released", hlua::function1(_mouse_released));
-        lua.set("key_down", hlua::function1(_key_down));
-        lua.set("key_pressed", hlua::function1(_key_pressed));
-        lua.set("key_released", hlua::function1(_key_released));
+    fn init(&mut self) {
+        self.lua.openlibs();
+
+        // system bindings
+        if self.is_system {
+            self.lua.set("launch_process", hlua::function1(_launch_process));
+        }
+
+        self.lua.set("set_pixel", hlua::function3(set_pixel));
+        self.lua.set("draw_text", hlua::function4(draw_text));
+        self.lua.set("load_img", hlua::function1(_preload_texture_sync));
+        self.lua.set("draw_img", hlua::function3(_draw_texture));
+        self.lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
+
+        self.lua.set("load_sound", hlua::function1(_preload_sound_sync));
+        self.lua.set("play_sound", hlua::function3(_play_sound));
+
+        self.lua.set("draw_rect", hlua::function5(_draw_rect));
+        self.lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
+
+        self.lua.set("show_mouse", hlua::function1(show_mouse));
+        self.lua.set("mouse_pos", hlua::function0(_mouse_pos));
+        self.lua.set("mouse_down", hlua::function1(_mouse_down));
+        self.lua.set("mouse_pressed", hlua::function1(_mouse_pressed));
+        self.lua.set("mouse_released", hlua::function1(_mouse_released));
+        self.lua.set("key_down", hlua::function1(_key_down));
+        self.lua.set("key_pressed", hlua::function1(_key_pressed));
+        self.lua.set("key_released", hlua::function1(_key_released));
 
         // both package.path and fennel.path use '?' as wildcard
         let mut base_copy = BASE_PATH.clone();
         base_copy.push("?");
 
-        lua.execute::<()>(
+        self.lua.execute::<()>(
             std::format!(
                 "package.path = package.path .. ';{}.lua'",
                 str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
@@ -312,11 +327,11 @@ impl<'a> App<'a> {
         )
         .unwrap();
 
-        lua.execute::<()>("fennel = require('fennel')").unwrap();
-        lua.execute::<()>("table.insert(package.loaders or package.searchers, fennel.searcher)")
+        self.lua.execute::<()>("fennel = require('fennel')").unwrap();
+        self.lua.execute::<()>("table.insert(package.loaders or package.searchers, fennel.searcher)")
             .unwrap();
 
-        lua.execute::<()>(
+            self.lua.execute::<()>(
             std::format!(
                 "fennel.path = fennel.path .. ';{}.fnl'",
                 str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
@@ -325,19 +340,15 @@ impl<'a> App<'a> {
         )
         .unwrap();
 
-        lua.execute::<()>("system = require('system')").unwrap();
+        self.lua.execute::<()>("system = require('system')").unwrap();
 
-        match lua.execute::<()>("app = require(\"app\")") {
+        match self.lua.execute::<()>("app = require(\"app\")") {
             Err(e) => print_lua_error(&e),
             res => res.unwrap(),
         }
 
-        App {
-            lua: lua,
-            root: root,
-            is_system: is_system
-        }
     }
+
     fn set_working_directory(&self) {
         env::set_current_dir(&self.root).unwrap();
     }
@@ -400,13 +411,12 @@ async fn main() {
         load_ttf_font("./HelvetiPixel.ttf").await.unwrap(),
     );
 
-    let texture = Texture2D::from_image(&*IMAGE.lock().unwrap());
-
     // eventually we'll scan for available apps
     let mut app_root = BASE_PATH.clone();
     app_root.push("files");
-    app_root.push("testapp");
-    let mut app = App::new(app_root.as_path(), true);
+    app_root.push("system");
+    let mut app = App::new(app_root, true);
+    app.init();
 
     let render = render_target(640, 480);
     render.texture.set_filter(FilterMode::Nearest);
