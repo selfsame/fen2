@@ -28,5 +28,8 @@
              (. package.loaded slashed))
         (reload slashed))))
 
+(fn global_path_loader [f]
+  (fn []))
+
 {:reload reload
  :reload_path reload_path}

@@ -197,3 +197,11 @@ trying to pass `PathBuf::from(&path).as_path()` into my `App<'a>` is failing wit
 * I could try to annotate the argument with a 'b lifetime
 
 Ended up using PathBuf as the argument type and putting a lifetime on the App return value, everything seems to be working now so later tonight I should be able to get back to the global resource loading issue.
+
+# 10-27-2022
+
+Hi, last night I decided that there is no reasonable way to borrow the App struct inside it's lua function closures. I am going to either:
+* set an active app mutex before any lua code execution
+* stick the root path into lua and wrap the function calls to globalize the path
+
+I desperately need to make *some* kind of progress here

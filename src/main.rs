@@ -34,6 +34,7 @@ lazy_static! {
     static ref MOUSE: Mutex<(f32, f32)> = Mutex::new((0., 0.));
 }
 
+
 fn window_conf() -> Conf {
     Conf {
         window_title: "FEN2".to_owned(),
@@ -287,7 +288,7 @@ impl<'a> App<'a> {
 
     fn init(&mut self) {
         self.lua.openlibs();
-
+        self.lua.set("_root_path", self.root.clone().into_os_string().into_string().unwrap());
         // system bindings
         if self.is_system {
             self.lua.set("launch_process", hlua::function1(_launch_process));
@@ -295,7 +296,7 @@ impl<'a> App<'a> {
 
         self.lua.set("set_pixel", hlua::function3(set_pixel));
         self.lua.set("draw_text", hlua::function4(draw_text));
-        self.lua.set("load_img", hlua::function1(_preload_texture_sync));
+        self.lua.set("_load_img", hlua::function1(_preload_texture_sync));
         self.lua.set("draw_img", hlua::function3(_draw_texture));
         self.lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
 
@@ -349,9 +350,14 @@ impl<'a> App<'a> {
 
     }
 
+    fn global_path(&self, path: &str) -> String {
+        self.root.clone().into_os_string().into_string().unwrap() + "/" + path
+    }
+
     fn set_working_directory(&self) {
         env::set_current_dir(&self.root).unwrap();
     }
+
     async fn reload(&mut self, path: PathBuf) {
         let path_s = path.to_str().unwrap();
         let root_s = self.root.to_str().unwrap();
