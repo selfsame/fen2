@@ -44,9 +44,9 @@ fn window_conf() -> Conf {
     }
 }
 
-// a and b are slash paths
-fn slashpath_join(a:&str, b:&str) -> String {
-    PathBuf::from_slash(a).join(PathBuf::from_slash(b)).into_os_string().into_string().unwrap()
+
+fn globalize_path_string(path:&str) -> String {
+    env::current_dir().unwrap().join(path).into_os_string().into_string().unwrap()
 }
 
 // user code will load images into the TEXTURES dict by path name
@@ -114,7 +114,7 @@ fn _preload_sound_sync(path: String) {
 
 fn _play_sound(path: String, looped: bool, volume: f32) {
     let sounds = SOUNDS.lock().unwrap();
-    match sounds.get(&path) {
+    match sounds.get(&globalize_path_string(&path)) {
         Some(t) => play_sound(
             *t,
             PlaySoundParams {
@@ -127,8 +127,10 @@ fn _play_sound(path: String, looped: bool, volume: f32) {
 }
 
 fn _draw_texture(path: String, x: u32, y: u32) {
+    
+
     let textures = TEXTURES.lock().unwrap();
-    match textures.get(&path) {
+    match textures.get(&globalize_path_string(&path)) {
         Some(t) => draw_texture(*t, x as f32, y as f32, WHITE),
         None => println!("Error: no texture {}", &path),
     }
@@ -136,7 +138,7 @@ fn _draw_texture(path: String, x: u32, y: u32) {
 
 fn _draw_texture_ex(path: String, x: u32, y: u32, sx: u32, sy: u32, sw: u32, sh: u32) {
     let textures = TEXTURES.lock().unwrap();
-    match textures.get(&path) {
+    match textures.get(&globalize_path_string(&path)) {
         Some(t) => draw_texture_ex(
             *t,
             x as f32,
@@ -253,6 +255,21 @@ fn _launch_process(path: String) -> String {
     return path;
 }
 
+fn _update_process(path: String, dt:f64) {
+    let apps = APPS.lock().unwrap();
+    let mut app = apps.get(&path.clone()).unwrap();
+
+    &app.set_working_directory();
+
+
+        // let dt = instant.elapsed().as_secs_f64() - elapsed;
+        // elapsed = instant.elapsed().as_secs_f64();
+
+    app.update(dt);
+}
+
+
+
 
 fn print_lua_error(e: &LuaError) {
     match e {
@@ -276,9 +293,6 @@ impl<'a> App<'a> {
         env::set_current_dir(&root).unwrap();
         let mut lua = Lua::new();
         
-
-        
-
         App {
             lua: lua,
             root: root,
@@ -292,19 +306,29 @@ impl<'a> App<'a> {
         // system bindings
         if self.is_system {
             self.lua.set("launch_process", hlua::function1(_launch_process));
+            self.lua.set("update_process", hlua::function2(_update_process));
         }
 
+
+        self.lua.set("load_img", hlua::function1(|path: String| {
+            _preload_texture_sync(globalize_path_string(&path));
+        }));
+        self.lua.set("load_sound", hlua::function1(|path: String| {
+            _preload_sound_sync(globalize_path_string(&path));
+        }));
+
+
         self.lua.set("set_pixel", hlua::function3(set_pixel));
-        self.lua.set("draw_text", hlua::function4(draw_text));
-        self.lua.set("_load_img", hlua::function1(_preload_texture_sync));
+        
         self.lua.set("draw_img", hlua::function3(_draw_texture));
         self.lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
 
-        self.lua.set("load_sound", hlua::function1(_preload_sound_sync));
-        self.lua.set("play_sound", hlua::function3(_play_sound));
-
         self.lua.set("draw_rect", hlua::function5(_draw_rect));
         self.lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
+
+        self.lua.set("draw_text", hlua::function4(draw_text));
+
+        self.lua.set("play_sound", hlua::function3(_play_sound));
 
         self.lua.set("show_mouse", hlua::function1(show_mouse));
         self.lua.set("mouse_pos", hlua::function0(_mouse_pos));
@@ -348,10 +372,6 @@ impl<'a> App<'a> {
             res => res.unwrap(),
         }
 
-    }
-
-    fn global_path(&self, path: &str) -> String {
-        self.root.clone().into_os_string().into_string().unwrap() + "/" + path
     }
 
     fn set_working_directory(&self) {

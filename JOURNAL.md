@@ -205,3 +205,9 @@ Hi, last night I decided that there is no reasonable way to borrow the App struc
 * stick the root path into lua and wrap the function calls to globalize the path
 
 I desperately need to make *some* kind of progress here
+
+# 10-28-2022
+
+OK I've solved the relative paths thing by just using `env::current_dir()` everywhere.  Honestly this was very simple and I could have done this 10 days ago.
+
+My next goal is calling a viable update() on a child process
