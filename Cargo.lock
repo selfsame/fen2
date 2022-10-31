@@ -128,7 +128,6 @@ dependencies = [
  "lazy_static",
  "macroquad",
  "notify",
- "path-slash",
 ]
 
 [[package]]
@@ -501,12 +500,6 @@ checksum = "13e571c3517af9e1729d4c63571a27edd660ade0667973bfc74a67c660c2b651"
 dependencies = [
  "byteorder",
 ]
-
-[[package]]
-name = "path-slash"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e91099d4268b0e11973f036e885d652fb0b21fedcf69738c627f94db6a44f42"
 
 [[package]]
 name = "pkg-config"

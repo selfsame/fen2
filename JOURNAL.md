@@ -211,3 +211,13 @@ I desperately need to make *some* kind of progress here
 OK I've solved the relative paths thing by just using `env::current_dir()` everywhere.  Honestly this was very simple and I could have done this 10 days ago.
 
 My next goal is calling a viable update() on a child process
+
+# 10-29-2022
+
+Upadate is working I'm sucessfully updating Jumpminster from the system process! Next I want to have processes get a UID so i can launch the same one multiple times
+
+# 10-30-2022
+
+How do apps commucate with the system app? There are some calls (quit, new_window, set_window, close_window)
+
+Also, there is an issue with file reloading not knowing which app & path is proper.

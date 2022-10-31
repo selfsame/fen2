@@ -10,11 +10,10 @@ use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Mutex;
-
+use rand;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant, SystemTime};
-use path_slash::PathBufExt as _;
 
 mod keys;
 
@@ -25,7 +24,7 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
-    static ref APPS: Mutex<HashMap<String, App<'static>>> = Mutex::new(HashMap::new());
+    static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
     static ref UNLOADED_TEXTURES: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
@@ -251,20 +250,15 @@ fn _key_released(key: String) -> bool {
 fn _launch_process(path: String) -> String {
     let mut app = App::new(PathBuf::from(&path), false);
     app.init();
-    APPS.lock().unwrap().insert(path.clone(), app);
-    return path;
+    let id = rand::rand();
+    APPS.lock().unwrap().insert(id.to_string(), Mutex::new(app));
+    return id.to_string();
 }
 
 fn _update_process(path: String, dt:f64) {
     let apps = APPS.lock().unwrap();
-    let mut app = apps.get(&path.clone()).unwrap();
-
-    &app.set_working_directory();
-
-
-        // let dt = instant.elapsed().as_secs_f64() - elapsed;
-        // elapsed = instant.elapsed().as_secs_f64();
-
+    let mut app = apps.get(&path.clone()).unwrap().lock().unwrap();
+    app.set_working_directory();
     app.update(dt);
 }
 
@@ -291,7 +285,7 @@ struct App<'a> {
 impl<'a> App<'a> {
     fn new(root: PathBuf, is_system: bool) -> App<'a> {
         env::set_current_dir(&root).unwrap();
-        let mut lua = Lua::new();
+        let lua = Lua::new();
         
         App {
             lua: lua,
@@ -378,20 +372,27 @@ impl<'a> App<'a> {
         env::set_current_dir(&self.root).unwrap();
     }
 
+    fn root_is_prefix_of(&self, path: &Path) -> bool {
+        path.canonicalize().unwrap().starts_with(self.root.canonicalize().unwrap())
+    }
+
     async fn reload(&mut self, path: PathBuf) {
         let path_s = path.to_str().unwrap();
         let root_s = self.root.to_str().unwrap();
         let mime = path.extension().and_then(OsStr::to_str);
+        println!("reload! {:?} {:?} {:?}", path_s, root_s, path_s.strip_prefix(root_s));
         // strip the app's root
         match path_s.strip_prefix(root_s) {
             Some(_s) => {
                 let s = _s.strip_prefix(&"\\").unwrap_or(_s);
                 println!("{:?} changed", s);
+                println!("app is {:?}", self.root);
                 match mime {
                     Some("png") | Some("bmp") => {
-                        _preload_texture(s.to_string(), true).await;
+                        _preload_texture(path_s.to_string(), true).await;
                     }
                     Some("lua") | Some("fnl") => {
+                        println!("reload_path {:?}", s);
                         match &self
                             .lua
                             .execute::<()>(&format!("system.reload_path({:?})", s))
@@ -500,11 +501,27 @@ async fn main() {
             },
         );
 
+        // need to find all apps that have a matching root prefix to the reload path and
+        // call reload on them.
         match rx.try_recv() {
             Ok(notify::DebouncedEvent::NoticeWrite(path)) => {
-                app.reload(path).await;
+                println!("notify {:?}", path);
+                let apps = APPS.lock().unwrap();
+                for value in apps.values() {
+                    let mut a = value.lock().unwrap();
+                    
+                    if a.root_is_prefix_of(&path) {
+                        
+                        a.set_working_directory();
+                        a.reload(path.clone()).await;
+                    }
+                }
+            
+                if app.root_is_prefix_of(path.as_path()) {
+                    app.reload(path).await;
+                }
             }
-            Err(e) => (),
+            Err(_e) => (),
             _ => (),
         }
 
