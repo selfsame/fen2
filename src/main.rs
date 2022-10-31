@@ -380,9 +380,10 @@ impl<'a> App<'a> {
         let path_s = path.to_str().unwrap();
         let root_s = self.root.to_str().unwrap();
         let mime = path.extension().and_then(OsStr::to_str);
+        // reload! "C:\\dev\\rust\\fen2\\files\\testapp\\app.fnl" "../testapp" None
         println!("reload! {:?} {:?} {:?}", path_s, root_s, path_s.strip_prefix(root_s));
         // strip the app's root
-        match path_s.strip_prefix(root_s) {
+        match path.canonicalize().unwrap().to_str().unwrap().strip_prefix(self.root.canonicalize().unwrap().to_str().unwrap()) {
             Some(_s) => {
                 let s = _s.strip_prefix(&"\\").unwrap_or(_s);
                 println!("{:?} changed", s);

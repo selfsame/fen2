@@ -12,7 +12,6 @@
 (set _G.prn (fn prn [x] (print (fennel.view x))))
 (var prn _G.prn)
 
-
 ;TODO
 ; [ ] jumpminster more content
 ; [ ] build gather files script

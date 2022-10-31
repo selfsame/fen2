@@ -19,9 +19,12 @@
 ; looks for packages to reload similar to the path string
 ; this won't work for combinations of '.' and '/'
 (fn reload_path [path]
+  (print "reloading" path)
   (let [stripped (string.gsub (string.gsub (string.gsub (string.gsub path "^/" "") "^\\" "") ".fnl$" "") ".lua$" "")
         dotted (string.gsub (string.gsub stripped "\\" ".") "/" ".")
         slashed (string.gsub stripped "\\" "/")]
+    (print dotted)
+    (print slashed)
     (if (. package.loaded dotted)
         (reload dotted))
     (if (and (not (= dotted slashed)) 
