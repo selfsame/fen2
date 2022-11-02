@@ -24,6 +24,8 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
+    // TODO i don't know how to mutex a single struct
+    static ref SYSTEM_APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
@@ -248,16 +250,16 @@ fn _key_released(key: String) -> bool {
 // System bindings
 
 fn _launch_process(path: String) -> String {
-    let mut app = App::new(PathBuf::from(&path), false);
-    app.init();
     let id = rand::rand();
+    let mut app = App::new(PathBuf::from(&path), id.to_string(), false);
+    app.init();
     APPS.lock().unwrap().insert(id.to_string(), Mutex::new(app));
     return id.to_string();
 }
 
-fn _update_process(path: String, dt:f64) {
+fn _update_process(id: String, dt:f64) {
     let apps = APPS.lock().unwrap();
-    let mut app = apps.get(&path.clone()).unwrap().lock().unwrap();
+    let mut app = apps.get(&id.clone()).unwrap().lock().unwrap();
     app.set_working_directory();
     app.update(dt);
 }
@@ -277,18 +279,20 @@ fn print_lua_error(e: &LuaError) {
 }
 
 struct App<'a> {
+    id: String,
     root: PathBuf,
     lua: Lua<'a>,
     is_system: bool
 }
 
 impl<'a> App<'a> {
-    fn new(root: PathBuf, is_system: bool) -> App<'a> {
+    fn new(root: PathBuf, id: String, is_system: bool) -> App<'a> {
         env::set_current_dir(&root).unwrap();
         let lua = Lua::new();
         
         App {
             lua: lua,
+            id: id,
             root: root,
             is_system: is_system
         }
@@ -303,6 +307,11 @@ impl<'a> App<'a> {
             self.lua.set("update_process", hlua::function2(_update_process));
         }
 
+
+        
+        self.lua.set("quit", hlua::function0(|| {
+            // get system app, call `process_quit` on it with this app's id somehow
+        }));
 
         self.lua.set("load_img", hlua::function1(|path: String| {
             _preload_texture_sync(globalize_path_string(&path));
@@ -443,8 +452,10 @@ async fn main() {
     let mut app_root = BASE_PATH.clone();
     app_root.push("files");
     app_root.push("system");
-    let mut app = App::new(app_root, true);
+    let mut app = App::new(app_root, String::from("system"), true);
     app.init();
+
+    SYSTEM_APPS.lock().unwrap().insert(String::from("system"), Mutex::new(app));
 
     let render = render_target(640, 480);
     render.texture.set_filter(FilterMode::Nearest);
@@ -475,7 +486,11 @@ async fn main() {
 
         set_camera(&render_cam);
 
-        app.set_working_directory();
+        // try grabbing a new reference to the system app from the mutex
+        let apps = SYSTEM_APPS.lock().unwrap();
+        let mut system_app = apps.get("system").unwrap().lock().unwrap();
+
+        system_app.set_working_directory();
         _handle_unloaded_textures().await;
         _handle_unloaded_sounds().await;
         clear_background(WHITE);
@@ -483,7 +498,7 @@ async fn main() {
         let dt = instant.elapsed().as_secs_f64() - elapsed;
         elapsed = instant.elapsed().as_secs_f64();
 
-        app.update(dt);
+        system_app.update(dt);
 
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
@@ -518,8 +533,8 @@ async fn main() {
                     }
                 }
             
-                if app.root_is_prefix_of(path.as_path()) {
-                    app.reload(path).await;
+                if system_app.root_is_prefix_of(path.as_path()) {
+                    system_app.reload(path).await;
                 }
             }
             Err(_e) => (),

@@ -221,3 +221,18 @@ Upadate is working I'm sucessfully updating Jumpminster from the system process!
 How do apps commucate with the system app? There are some calls (quit, new_window, set_window, close_window)
 
 Also, there is an issue with file reloading not knowing which app & path is proper.
+
+I am working on reloading, which meant checking every app to see if it's root is a prefix of the changed file. The actual reload function is getting a relative path maybe, need to sort that out.
+
+Ok reloading an app works but reloading the system app seems to fail by the launched app not loading it's images correctly.
+
+# 11-01-2022
+
+Thinking about communication between processes and the system app.  Ideally the 'children' can call some standard functions (quit, new_render_texture, etc.) handled by the system and not the rust environment.  This allows the system to manage windows, clean up, etc. 
+
+My current plan: said functions will get ahold of the system app and call corresponding handlers, returning their returned values. My only worry is that the `system` app will be hard to access, but I can always store it under a special key.
+
+Program is freezing up after I put system app into the `APPS` mutex, believe it's because of the lock. I will probably have to have a separate mutex for the system_process. (I did do that)
+
+Ok and the real problem is in my bridging call i would need to access system, which was already locked in the loop to update.
+
