@@ -27,7 +27,7 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
-    static ref SYSTEM_APP_PTR: Mutex<AtomicPtr<App<'static>>> = Mutex::new(AtomicPtr::new(unsafe {mem::zeroed()}));
+    static ref SYS_PTR: AtomicPtr<App<'static>> = AtomicPtr::new(unsafe {mem::zeroed()});
     static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
@@ -48,8 +48,10 @@ fn window_conf() -> Conf {
 
 
 fn system_app_pointer() -> *mut App<'static> {
-    let mut A = SYSTEM_APP_PTR.lock().unwrap();
-    let b = *A.get_mut();
+    //let mut A = SYSTEM_APP_PTR.lock().unwrap();
+    //let b = *A.get_mut();
+    //b
+    let b = SYS_PTR.load(Ordering::Relaxed);
     b
 }
 
@@ -317,8 +319,14 @@ impl<'a> App<'a> {
 
         
         self.lua.set("quit", hlua::function0(|| {
-            let sptr = system_app_pointer();
-            println!("inside of quit, system pointer is {:?}", sptr)
+            
+            unsafe {
+                let sptr = system_app_pointer();
+                let sys = &mut *sptr;
+                sys.lua.execute::<()>("print('unsafe!')").unwrap();
+            }
+
+            println!("inside of quit, system pointer is {:?}", system_app_pointer());
             // get system app, call `process_quit` on it with this app's id somehow
         }));
 
@@ -462,7 +470,7 @@ async fn main() {
     app_root.push("system");
     let mut system_app = App::new(app_root, String::from("system"), true);
     let sa_ptr: *mut App = &mut system_app;
-    *SYSTEM_APP_PTR.lock().unwrap() = AtomicPtr::new(sa_ptr);
+    SYS_PTR.store(sa_ptr, Ordering::Relaxed);
     system_app.init();
 
     let render = render_target(640, 480);
