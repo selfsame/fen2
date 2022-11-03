@@ -23,7 +23,7 @@
 ; [x] sounds
 ; [ ] fx entities
 
-
+(quit)
 
 (var state _G.state)
 

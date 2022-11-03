@@ -14,6 +14,9 @@ use rand;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
 use std::time::{Duration, Instant, SystemTime};
+use std::ptr;
+use std::sync::atomic::{AtomicPtr, Ordering};
+use std::mem::{self, MaybeUninit};
 
 mod keys;
 
@@ -24,8 +27,7 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
-    // TODO i don't know how to mutex a single struct
-    static ref SYSTEM_APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
+    static ref SYSTEM_APP_PTR: Mutex<AtomicPtr<App<'static>>> = Mutex::new(AtomicPtr::new(unsafe {mem::zeroed()}));
     static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
@@ -34,7 +36,6 @@ lazy_static! {
     static ref UNLOADED_SOUNDS: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
     static ref MOUSE: Mutex<(f32, f32)> = Mutex::new((0., 0.));
 }
-
 
 fn window_conf() -> Conf {
     Conf {
@@ -45,6 +46,12 @@ fn window_conf() -> Conf {
     }
 }
 
+
+fn system_app_pointer() -> *mut App<'static> {
+    let mut A = SYSTEM_APP_PTR.lock().unwrap();
+    let b = *A.get_mut();
+    b
+}
 
 fn globalize_path_string(path:&str) -> String {
     env::current_dir().unwrap().join(path).into_os_string().into_string().unwrap()
@@ -310,6 +317,8 @@ impl<'a> App<'a> {
 
         
         self.lua.set("quit", hlua::function0(|| {
+            let sptr = system_app_pointer();
+            println!("inside of quit, system pointer is {:?}", sptr)
             // get system app, call `process_quit` on it with this app's id somehow
         }));
 
@@ -448,14 +457,13 @@ async fn main() {
         load_ttf_font("./HelvetiPixel.ttf").await.unwrap(),
     );
 
-    // eventually we'll scan for available apps
     let mut app_root = BASE_PATH.clone();
     app_root.push("files");
     app_root.push("system");
-    let mut app = App::new(app_root, String::from("system"), true);
-    app.init();
-
-    SYSTEM_APPS.lock().unwrap().insert(String::from("system"), Mutex::new(app));
+    let mut system_app = App::new(app_root, String::from("system"), true);
+    let sa_ptr: *mut App = &mut system_app;
+    *SYSTEM_APP_PTR.lock().unwrap() = AtomicPtr::new(sa_ptr);
+    system_app.init();
 
     let render = render_target(640, 480);
     render.texture.set_filter(FilterMode::Nearest);
@@ -486,10 +494,6 @@ async fn main() {
 
         set_camera(&render_cam);
 
-        // try grabbing a new reference to the system app from the mutex
-        let apps = SYSTEM_APPS.lock().unwrap();
-        let mut system_app = apps.get("system").unwrap().lock().unwrap();
-
         system_app.set_working_directory();
         _handle_unloaded_textures().await;
         _handle_unloaded_sounds().await;
@@ -499,6 +503,8 @@ async fn main() {
         elapsed = instant.elapsed().as_secs_f64();
 
         system_app.update(dt);
+
+
 
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
