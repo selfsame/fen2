@@ -29,6 +29,7 @@ lazy_static! {
     ));
     static ref SYS_PTR: AtomicPtr<App<'static>> = AtomicPtr::new(unsafe {mem::zeroed()});
     static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
+    static ref TO_REMOVE_APPS: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
     static ref TEXTURES: Mutex<HashMap<String, Texture2D>> = Mutex::new(HashMap::new());
     static ref UNLOADED_TEXTURES: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
@@ -268,12 +269,36 @@ fn _launch_process(path: String) -> String {
 
 fn _update_process(id: String, dt:f64) {
     let apps = APPS.lock().unwrap();
-    let mut app = apps.get(&id.clone()).unwrap().lock().unwrap();
-    app.set_working_directory();
-    app.update(dt);
+    
+    match apps.get(&id.clone()) {
+        Some(app) => {
+            let mut app = app.lock().unwrap();
+            app.set_working_directory();
+            app.update(dt);
+        }
+        None => {
+            ()
+        }
+    }
 }
 
+fn _close_process(id: String) {
+    TO_REMOVE_APPS.lock().unwrap().insert(id);
+}
 
+fn _remove_closed_processes() {
+    for s in TO_REMOVE_APPS.lock().unwrap().drain() {
+        let mut apps = APPS.lock().unwrap();
+        match apps.remove(&s.clone()) {
+            Some(_) => {
+                println!("removing app id {:?}", &s);
+            }
+            None => {
+                ()
+            }
+        }
+    }
+}
 
 
 fn print_lua_error(e: &LuaError) {
@@ -310,25 +335,27 @@ impl<'a> App<'a> {
     fn init(&mut self) {
         self.lua.openlibs();
         self.lua.set("_root_path", self.root.clone().into_os_string().into_string().unwrap());
+        
         // system bindings
         if self.is_system {
             self.lua.set("launch_process", hlua::function1(_launch_process));
             self.lua.set("update_process", hlua::function2(_update_process));
+            self.lua.set("close_process", hlua::function1(_close_process));
         }
 
-
-        
-        self.lua.set("quit", hlua::function0(|| {
+        // app <-> system bridges
+        if !self.is_system {
+            let myid = self.id.clone();
             
-            unsafe {
-                let sptr = system_app_pointer();
-                let sys = &mut *sptr;
-                sys.lua.execute::<()>("print('unsafe!')").unwrap();
-            }
+            self.lua.set("quit", hlua::function0(move || {
+                unsafe {
+                    let sptr = system_app_pointer();
+                    let sys = &mut *sptr;
+                    sys.lua.execute::<()>(&format!("app.handle_quit({:?})", myid)).unwrap();
+                }
+            }));
+        }
 
-            println!("inside of quit, system pointer is {:?}", system_app_pointer());
-            // get system app, call `process_quit` on it with this app's id somehow
-        }));
 
         self.lua.set("load_img", hlua::function1(|path: String| {
             _preload_texture_sync(globalize_path_string(&path));
@@ -385,7 +412,7 @@ impl<'a> App<'a> {
         )
         .unwrap();
 
-        self.lua.execute::<()>("system = require('system')").unwrap();
+        self.lua.execute::<()>("reloader = require('reloader')").unwrap();
 
         match self.lua.execute::<()>("app = require(\"app\")") {
             Err(e) => print_lua_error(&e),
@@ -422,7 +449,7 @@ impl<'a> App<'a> {
                         println!("reload_path {:?}", s);
                         match &self
                             .lua
-                            .execute::<()>(&format!("system.reload_path({:?})", s))
+                            .execute::<()>(&format!("reloader.reload_path({:?})", s))
                         {
                             Err(e) => print_lua_error(e),
                             _ => (),
@@ -556,6 +583,8 @@ async fn main() {
         }
 
         env::set_current_dir(BASE_PATH.clone()).unwrap();
+
+        _remove_closed_processes();
 
         next_frame().await
     }

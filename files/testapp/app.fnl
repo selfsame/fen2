@@ -23,7 +23,7 @@
 ; [x] sounds
 ; [ ] fx entities
 
-(quit)
+
 
 (var state _G.state)
 
@@ -107,6 +107,7 @@
   (set _G.dt _dt)
   (if (key_pressed "escape") (set _G.mode :menu))
   (if (key_pressed "e") (open-editor))
+  (if (key_pressed "q") (quit))
   (when (key_pressed "r") (set _G.mode :game) (restart))
   (when (key_pressed "key0") (set _G.mode :game) (new-game))
   (when (= _G.mode :editor)
