@@ -418,6 +418,13 @@ impl<'a> App<'a> {
             Err(e) => print_lua_error(&e),
             res => res.unwrap(),
         }
+        match &self
+            .lua
+            .execute::<()>(&format!("if app.start then app.start() end"))
+        {
+            Err(e) => print_lua_error(e),
+            _ => (),
+        }
 
     }
 

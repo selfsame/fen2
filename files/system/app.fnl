@@ -1,15 +1,21 @@
+(var apps {})
 
-
-(var testapp (launch_process "../testapp"))
-
-(print "??" testapp)
+(fn start []
+  (print "system starting..")
+  (tset apps (launch_process "../testapp") true)
+  (tset apps (launch_process "../testapp") true))
 
 (fn update [dt]
-  (update_process testapp dt))
+  (each [app _ (pairs apps)] 
+    (update_process app dt)))
 
 (fn handle_quit [pid]
   (print "handle_quit" pid)
+  
+  (tset apps pid nil)
+  (print (fennel.view apps))
   (close_process pid))
 
-{:update update
+{:start start
+ :update update
  :handle_quit handle_quit}

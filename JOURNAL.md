@@ -240,6 +240,8 @@ Ok and the real problem is in my bridging call i would need to access system, wh
 
 I took a 2 day detour trying to figure out how to get a raw pointer to my system app that i could use unsafely. It is working using an AtomicPtr! It should be easy to have apps call the system now, next steps are the quit functions.
 
-[ ] TODO The system app is loading children before it has `app` set on it's table, might want to have a `:start` or something
+[x] TODO The system app is loading children before it has `app` set on it's table, might want to have a `:start` or something
 
 things are locking up when I try and close_process from the child.... ah wait I know the child was in a mutex and I'm trying to access it again in the `_close_process`. I'll need to free it in a later sweep
+
+Another thought, apps will need to have ownership of their render textures.
