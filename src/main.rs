@@ -582,6 +582,7 @@ async fn main() {
                 }
             
                 if system_app.root_is_prefix_of(path.as_path()) {
+                    system_app.set_working_directory();
                     system_app.reload(path).await;
                 }
             }

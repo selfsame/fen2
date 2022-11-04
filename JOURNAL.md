@@ -245,3 +245,5 @@ I took a 2 day detour trying to figure out how to get a raw pointer to my system
 things are locking up when I try and close_process from the child.... ah wait I know the child was in a mutex and I'm trying to access it again in the `_close_process`. I'll need to free it in a later sweep
 
 Another thought, apps will need to have ownership of their render textures.
+
+[x] TODO Something is wrong with my reload paths, the system is trying to reload the testapp app.fnl (this explains why it wouldn't load textures earlier, I would never have figured this out without having some fns `quit` be not available in the system!) -- Turns out I was just missing the set working directory command on the system reload.
