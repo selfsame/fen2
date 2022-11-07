@@ -4,8 +4,6 @@
 (var view (require "view"))
 (var bucket (require "deps/bucket"))
 
-;per technomancy
-;(fn has? [tbl x] (accumulate [h? false _ y (ipairs tbl) :until h?] (= x y)))
 (fn _has [e ks]
   (var res true)
   (each [_ n (ipairs ks)]
