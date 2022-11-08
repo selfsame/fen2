@@ -1,22 +1,21 @@
 #[macro_use]
 extern crate lazy_static;
 use hlua::{Lua, LuaError};
-use macroquad::audio::{load_sound, play_sound, play_sound_once, PlaySoundParams, Sound};
+use macroquad::audio::{load_sound, play_sound, PlaySoundParams, Sound};
 use macroquad::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Mutex;
 use rand;
 use notify::{watcher, RecursiveMode, Watcher};
 use std::sync::mpsc::channel;
-use std::time::{Duration, Instant, SystemTime};
-use std::ptr;
+use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use std::mem::{self, MaybeUninit};
+use std::mem::{self};
+use std::fs;
 
 mod keys;
 
@@ -257,6 +256,32 @@ fn _key_released(key: String) -> bool {
 }
 
 
+
+fn _list_files(path: String) -> HashMap<String, String> {
+    //TODO sandbox path
+
+    let mut res:HashMap<String, String> = HashMap::new();
+
+    match fs::read_dir(path) {
+        Ok(files) => {
+            for file in files {
+                let f = file.unwrap();
+                let md = f.metadata().unwrap();
+                if md.is_file() {
+                    res.insert(f.file_name().to_string_lossy().to_string(), String::from("file"));
+                } else if md.is_dir() {
+                    res.insert(f.file_name().to_string_lossy().to_string(), String::from("dir"));
+                }
+            }
+        }
+        
+        Err(e) => println!("{:?}", e),
+    }
+
+    res
+}
+
+
 // System bindings
 
 fn _launch_process(path: String) -> String {
@@ -303,7 +328,7 @@ fn _remove_closed_processes() {
 
 fn print_lua_error(e: &LuaError) {
     match e {
-        LuaError::ExecutionError(s) => {
+        LuaError::ExecutionError(_) => {
             for s in format!("{:?}", e).split("\\n") {
                 println!("{}", s)
             }
@@ -356,6 +381,7 @@ impl<'a> App<'a> {
             }));
         }
 
+        
 
         self.lua.set("load_img", hlua::function1(|path: String| {
             _preload_texture_sync(globalize_path_string(&path));
@@ -385,6 +411,8 @@ impl<'a> App<'a> {
         self.lua.set("key_down", hlua::function1(_key_down));
         self.lua.set("key_pressed", hlua::function1(_key_pressed));
         self.lua.set("key_released", hlua::function1(_key_released));
+
+        self.lua.set("list_files", hlua::function1(_list_files));
 
         // both package.path and fennel.path use '?' as wildcard
         let mut base_copy = BASE_PATH.clone();

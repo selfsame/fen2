@@ -2,8 +2,11 @@
 
 (fn start []
   (print "system starting..")
-  (tset apps (launch_process "../testapp") true)
-  (tset apps (launch_process "../testapp") true))
+  ;(tset apps (launch_process "../testapp") true)
+  ;(tset apps (launch_process "../testapp") true)
+  (print (fennel.view io))
+  (print (fennel.view (list_files "../testapp")))
+  )
 
 (fn update [dt]
   (each [app _ (pairs apps)] 

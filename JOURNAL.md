@@ -105,8 +105,6 @@ The top level `system` process would also need a handle (literal) on windows and
 
 * `close_process(process_id)`
 
-
-
 * `assign_render_texture(render_texture_id, process_id)` ????
 
 * `destroy_render_texture(render_texture_id)`
@@ -247,3 +245,23 @@ things are locking up when I try and close_process from the child.... ah wait I 
 Another thought, apps will need to have ownership of their render textures.
 
 [x] TODO Something is wrong with my reload paths, the system is trying to reload the testapp app.fnl (this explains why it wouldn't load textures earlier, I would never have figured this out without having some fns `quit` be not available in the system!) -- Turns out I was just missing the set working directory command on the system reload.
+
+# 11-07-2022
+
+Implemented `list_files`!  At some point I'm going to need to work on sandboxing, some thoughts on that: `list_files` should constrain the path to within the fen2 `files` dir.  I'll also want to ensure a root `/foo` parses as `files/foo`.  Lua's `io` module needs to be removed, although `io.open` needs to be wrapped in something that sanitizes it's path argument. 
+
+Revisiting the render texture/window thing to see if this can be a bit simpler:
+
+system:
+
+  `create_render_texture() -> uid`
+  `free_render_texture(uid)`
+  `set_render_texture(uid)`
+  `draw_render_texture(uid)`
+
+apps:
+
+   `new_window(w, h, title) -> render_texture_id`
+   `close_window(render_texture_id)`
+   `set_window(render_texture_id)` activates the render texture and camera
+   `window_size(render_texture_id) -> int, int` gets the `system` determined size of the window
