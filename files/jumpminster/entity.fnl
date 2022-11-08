@@ -211,10 +211,7 @@
     (fn [e]
       (when (= e.ai :wander)
         (set e.velocity.x (+ e.velocity.x (* (math.random -3 3) _G.dt)))
-        (set e.velocity.y (+ e.velocity.y (* (math.random -3 3) _G.dt)))
-        )
-        
-      )))
+        (set e.velocity.y (+ e.velocity.y (* (math.random -3 3) _G.dt)))))))
 
 
 (var types {
