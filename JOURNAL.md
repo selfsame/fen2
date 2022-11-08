@@ -265,3 +265,5 @@ apps:
    `close_window(render_texture_id)`
    `set_window(render_texture_id)` activates the render texture and camera
    `window_size(render_texture_id) -> int, int` gets the `system` determined size of the window
+
+Additionally there is an assumption that `uid` 0 is the main render texture, or for apps the primary window (well, should apps be allowed to run in headless mode?)
