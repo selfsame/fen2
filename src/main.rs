@@ -67,7 +67,9 @@ async fn _preload_texture(path: String, reload: bool) -> bool {
     if reload || !textures.contains_key(p) {
         match load_texture(p).await {
             Ok(t) => {
+                println!("loading {:?}", path);
                 textures.insert(path, t);
+                
                 return true;
             }
             Err(e) => {
@@ -82,7 +84,7 @@ async fn _preload_texture(path: String, reload: bool) -> bool {
 
 async fn _handle_unloaded_textures() {
     for s in UNLOADED_TEXTURES.lock().unwrap().drain() {
-        println!("loading {:?}", s);
+        //println!("loading {:?}", s);
         _preload_texture(s, false).await;
     }
 }
@@ -98,7 +100,9 @@ async fn _preload_sound(path: String, reload: bool) -> bool {
     if reload || !sounds.contains_key(p) {
         match load_sound(p).await {
             Ok(t) => {
+                println!("loading {:?}", path);
                 sounds.insert(path, t);
+                
                 return true;
             }
             Err(e) => {
@@ -113,7 +117,6 @@ async fn _preload_sound(path: String, reload: bool) -> bool {
 
 async fn _handle_unloaded_sounds() {
     for s in UNLOADED_SOUNDS.lock().unwrap().drain() {
-        println!("loading {:?}", s);
         _preload_sound(s, false).await;
     }
 }
@@ -289,7 +292,13 @@ fn _launch_process(path: String) -> String {
     let mut app = App::new(PathBuf::from(&path), id.to_string(), false);
     app.init();
     APPS.lock().unwrap().insert(id.to_string(), Mutex::new(app));
+    unsafe {
+        let sptr = system_app_pointer();
+        let sys = &mut *sptr;
+        sys.set_working_directory();
+    }
     return id.to_string();
+
 }
 
 fn _update_process(id: String, dt:f64) {
@@ -304,6 +313,11 @@ fn _update_process(id: String, dt:f64) {
         None => {
             ()
         }
+    }
+    unsafe {
+        let sptr = system_app_pointer();
+        let sys = &mut *sptr;
+        sys.set_working_directory();
     }
 }
 
@@ -457,7 +471,12 @@ impl<'a> App<'a> {
     }
 
     fn set_working_directory(&self) {
-        env::set_current_dir(&self.root).unwrap();
+        match env::set_current_dir(&self.root) {
+            Ok(_) => (),
+            Err(e) => {
+                println!("{:?} {:?}", e, &self.root);
+            }
+        }
     }
 
     fn root_is_prefix_of(&self, path: &Path) -> bool {

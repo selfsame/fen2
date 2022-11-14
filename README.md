@@ -35,3 +35,29 @@
   - [ ] windows, linux, localStorage
 - [ ] sandbox filesystem access
 
+
+## API
+
+```fnl
+(load_img "img/foo.png")
+(draw_img x y "img/foo.png")
+(draw_sprite x y sx sy w h "img/foo.png")
+(draw_text "HELLO" x y true)
+
+(draw_rect x y w h false)
+(draw_rect_lines x y w h thickness true)
+
+(load_sound "bar.wav")
+(play_sound "bar.wav" false 0.2)
+
+(mouse_pos)
+(mouse_down 0)
+(mouse_pressed 0)
+
+(key_down "tab")
+(key_pressed "q")
+(key_released "x")
+
+(list_files "dir/")
+(quit)
+```
