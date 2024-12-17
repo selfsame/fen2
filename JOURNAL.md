@@ -267,3 +267,11 @@ apps:
    `window_size(render_texture_id) -> int, int` gets the `system` determined size of the window
 
 Additionally there is an assumption that `uid` 0 is the main render texture, or for apps the primary window (well, should apps be allowed to run in headless mode?)
+
+# 12-16-2024
+
+Maybe picking this up again. Updated macroquad dep for new rust version and trying to fix a few borrow checker issues. Stuck with borrow issues with the render texture that wants to be passed to the camera2d.  Have to brush up on macroquad to remember why I need a camera at all, the examples don't seem to use one?
+
+ok weird I just put a clone() in `render_cam.render_target = Some(render.clone());` per some examples on macroquad docs, why does that work.
+
+Part of me wants to look into redoing this project with C and SDL or maybe raylib.  Apart from fighting the borrow checker there was problems with my builds not linking to libc correctly for some people AFAIK, and it was a known issue with rust executables

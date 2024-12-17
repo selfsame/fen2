@@ -129,7 +129,7 @@ fn _play_sound(path: String, looped: bool, volume: f32) {
     let sounds = SOUNDS.lock().unwrap();
     match sounds.get(&globalize_path_string(&path)) {
         Some(t) => play_sound(
-            *t,
+            t,
             PlaySoundParams {
                 looped: looped,
                 volume: volume,
@@ -144,7 +144,7 @@ fn _draw_texture(path: String, x: u32, y: u32) {
 
     let textures = TEXTURES.lock().unwrap();
     match textures.get(&globalize_path_string(&path)) {
-        Some(t) => draw_texture(*t, x as f32, y as f32, WHITE),
+        Some(t) => draw_texture(t, x as f32, y as f32, WHITE),
         None => println!("Error: no texture {}", &path),
     }
 }
@@ -153,7 +153,7 @@ fn _draw_texture_ex(path: String, x: u32, y: u32, sx: u32, sy: u32, sw: u32, sh:
     let textures = TEXTURES.lock().unwrap();
     match textures.get(&globalize_path_string(&path)) {
         Some(t) => draw_texture_ex(
-            *t,
+            t,
             x as f32,
             y as f32,
             WHITE,
@@ -179,17 +179,15 @@ fn set_pixel(x: u32, y: u32, c: bool) {
 }
 
 fn draw_text(s: String, x: u32, y: u32, c: bool) {
-    let font = *FONTS
-        .lock()
-        .unwrap()
-        .get(&String::from("HelvetiPixel"))
+    let mutex = FONTS.lock().unwrap();
+    let font = mutex.get(&String::from("HelvetiPixel"))
         .unwrap();
     draw_text_ex(
         &s,
         x as f32,
         y as f32,
         TextParams {
-            font: font,
+            font: Some(font),
             font_size: 16,
             font_scale: 1.0,
             font_scale_aspect: 1.0,
@@ -563,7 +561,7 @@ async fn main() {
         h: 480.,
     });
 
-    render_cam.render_target = Some(render);
+    render_cam.render_target = Some(render.clone());
     render_cam.zoom.y = render_cam.zoom.y * -1.;
 
     loop {
@@ -602,7 +600,7 @@ async fn main() {
         clear_background(BLACK);
 
         draw_texture_ex(
-            render.texture,
+            &render.texture,
             ((screen_width() - width) / 2.).floor(),
             ((screen_height() - height) / 2.).floor(),
             WHITE,

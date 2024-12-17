@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 # miniquad = "0.3.2"
 lazy_static = "1.4.0"
-macroquad = "0.3.16"
+macroquad = "0.4.13"
 hlua = "0.3"
 notify = "4.0.17"
