@@ -39,6 +39,7 @@
 ## API
 
 ```fnl
+(clear_screen true)
 (load_img "img/foo.png")
 (draw_img x y "img/foo.png")
 (draw_sprite x y sx sy w h "img/foo.png")

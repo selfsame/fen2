@@ -3,19 +3,19 @@ extern crate lazy_static;
 use hlua::{Lua, LuaError};
 use macroquad::audio::{load_sound, play_sound, PlaySoundParams, Sound};
 use macroquad::prelude::*;
+use notify::{watcher, RecursiveMode, Watcher};
+use rand;
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
+use std::fs;
+use std::mem::{self};
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use rand;
-use notify::{watcher, RecursiveMode, Watcher};
-use std::sync::mpsc::channel;
-use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicPtr, Ordering};
-use std::mem::{self};
-use std::fs;
+use std::sync::mpsc::channel;
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 mod keys;
 
@@ -26,7 +26,7 @@ lazy_static! {
         screen_height() as u16,
         BLACK
     ));
-    static ref SYS_PTR: AtomicPtr<App<'static>> = AtomicPtr::new(unsafe {mem::zeroed()});
+    static ref SYS_PTR: AtomicPtr<App<'static>> = AtomicPtr::new(unsafe { mem::zeroed() });
     static ref APPS: Mutex<HashMap<String, Mutex<App<'static>>>> = Mutex::new(HashMap::new());
     static ref TO_REMOVE_APPS: Mutex<HashSet<String>> = Mutex::new(HashSet::new());
     static ref FONTS: Mutex<HashMap<String, Font>> = Mutex::new(HashMap::new());
@@ -46,7 +46,6 @@ fn window_conf() -> Conf {
     }
 }
 
-
 fn system_app_pointer() -> *mut App<'static> {
     //let mut A = SYSTEM_APP_PTR.lock().unwrap();
     //let b = *A.get_mut();
@@ -55,8 +54,13 @@ fn system_app_pointer() -> *mut App<'static> {
     b
 }
 
-fn globalize_path_string(path:&str) -> String {
-    env::current_dir().unwrap().join(path).into_os_string().into_string().unwrap()
+fn globalize_path_string(path: &str) -> String {
+    env::current_dir()
+        .unwrap()
+        .join(path)
+        .into_os_string()
+        .into_string()
+        .unwrap()
 }
 
 // user code will load images into the TEXTURES dict by path name
@@ -69,7 +73,7 @@ async fn _preload_texture(path: String, reload: bool) -> bool {
             Ok(t) => {
                 println!("loading {:?}", path);
                 textures.insert(path, t);
-                
+
                 return true;
             }
             Err(e) => {
@@ -102,7 +106,7 @@ async fn _preload_sound(path: String, reload: bool) -> bool {
             Ok(t) => {
                 println!("loading {:?}", path);
                 sounds.insert(path, t);
-                
+
                 return true;
             }
             Err(e) => {
@@ -140,8 +144,6 @@ fn _play_sound(path: String, looped: bool, volume: f32) {
 }
 
 fn _draw_texture(path: String, x: u32, y: u32) {
-    
-
     let textures = TEXTURES.lock().unwrap();
     match textures.get(&globalize_path_string(&path)) {
         Some(t) => draw_texture(t, x as f32, y as f32, WHITE),
@@ -180,8 +182,7 @@ fn set_pixel(x: u32, y: u32, c: bool) {
 
 fn draw_text(s: String, x: u32, y: u32, c: bool) {
     let mutex = FONTS.lock().unwrap();
-    let font = mutex.get(&String::from("HelvetiPixel"))
-        .unwrap();
+    let font = mutex.get(&String::from("HelvetiPixel")).unwrap();
     draw_text_ex(
         &s,
         x as f32,
@@ -195,6 +196,10 @@ fn draw_text(s: String, x: u32, y: u32, c: bool) {
             ..Default::default()
         },
     );
+}
+
+fn _clear_screen(c: bool) {
+    clear_background(if c { BLACK } else { WHITE })
 }
 
 fn _draw_rect(x: u32, y: u32, w: u32, h: u32, c: bool) {
@@ -256,12 +261,10 @@ fn _key_released(key: String) -> bool {
     return is_key_released(keys::keycode(&key));
 }
 
-
-
 fn _list_files(path: String) -> HashMap<String, String> {
     //TODO sandbox path
 
-    let mut res:HashMap<String, String> = HashMap::new();
+    let mut res: HashMap<String, String> = HashMap::new();
 
     match fs::read_dir(path) {
         Ok(files) => {
@@ -269,19 +272,24 @@ fn _list_files(path: String) -> HashMap<String, String> {
                 let f = file.unwrap();
                 let md = f.metadata().unwrap();
                 if md.is_file() {
-                    res.insert(f.file_name().to_string_lossy().to_string(), String::from("file"));
+                    res.insert(
+                        f.file_name().to_string_lossy().to_string(),
+                        String::from("file"),
+                    );
                 } else if md.is_dir() {
-                    res.insert(f.file_name().to_string_lossy().to_string(), String::from("dir"));
+                    res.insert(
+                        f.file_name().to_string_lossy().to_string(),
+                        String::from("dir"),
+                    );
                 }
             }
         }
-        
+
         Err(e) => println!("{:?}", e),
     }
 
     res
 }
-
 
 // System bindings
 
@@ -296,21 +304,18 @@ fn _launch_process(path: String) -> String {
         sys.set_working_directory();
     }
     return id.to_string();
-
 }
 
-fn _update_process(id: String, dt:f64) {
+fn _update_process(id: String, dt: f64) {
     let apps = APPS.lock().unwrap();
-    
+
     match apps.get(&id.clone()) {
         Some(app) => {
             let mut app = app.lock().unwrap();
             app.set_working_directory();
             app.update(dt);
         }
-        None => {
-            ()
-        }
+        None => (),
     }
     unsafe {
         let sptr = system_app_pointer();
@@ -330,13 +335,10 @@ fn _remove_closed_processes() {
             Some(_) => {
                 println!("removing app id {:?}", &s);
             }
-            None => {
-                ()
-            }
+            None => (),
         }
     }
 }
-
 
 fn print_lua_error(e: &LuaError) {
     match e {
@@ -353,63 +355,78 @@ struct App<'a> {
     id: String,
     root: PathBuf,
     lua: Lua<'a>,
-    is_system: bool
+    is_system: bool,
 }
 
 impl<'a> App<'a> {
     fn new(root: PathBuf, id: String, is_system: bool) -> App<'a> {
         env::set_current_dir(&root).unwrap();
         let lua = Lua::new();
-        
+
         App {
             lua: lua,
             id: id,
             root: root,
-            is_system: is_system
+            is_system: is_system,
         }
     }
 
     fn init(&mut self) {
         self.lua.openlibs();
-        self.lua.set("_root_path", self.root.clone().into_os_string().into_string().unwrap());
-        
+        self.lua.set(
+            "_root_path",
+            self.root.clone().into_os_string().into_string().unwrap(),
+        );
+
         // system bindings
         if self.is_system {
-            self.lua.set("launch_process", hlua::function1(_launch_process));
-            self.lua.set("update_process", hlua::function2(_update_process));
-            self.lua.set("close_process", hlua::function1(_close_process));
+            self.lua
+                .set("launch_process", hlua::function1(_launch_process));
+            self.lua
+                .set("update_process", hlua::function2(_update_process));
+            self.lua
+                .set("close_process", hlua::function1(_close_process));
         }
 
         // app <-> system bridges
         if !self.is_system {
             let myid = self.id.clone();
-            
-            self.lua.set("quit", hlua::function0(move || {
-                unsafe {
+
+            self.lua.set(
+                "quit",
+                hlua::function0(move || unsafe {
                     let sptr = system_app_pointer();
                     let sys = &mut *sptr;
-                    sys.lua.execute::<()>(&format!("app.handle_quit({:?})", myid)).unwrap();
-                }
-            }));
+                    sys.lua
+                        .execute::<()>(&format!("app.handle_quit({:?})", myid))
+                        .unwrap();
+                }),
+            );
         }
 
-        
-
-        self.lua.set("load_img", hlua::function1(|path: String| {
-            _preload_texture_sync(globalize_path_string(&path));
-        }));
-        self.lua.set("load_sound", hlua::function1(|path: String| {
-            _preload_sound_sync(globalize_path_string(&path));
-        }));
-
+        self.lua.set(
+            "load_img",
+            hlua::function1(|path: String| {
+                _preload_texture_sync(globalize_path_string(&path));
+            }),
+        );
+        self.lua.set(
+            "load_sound",
+            hlua::function1(|path: String| {
+                _preload_sound_sync(globalize_path_string(&path));
+            }),
+        );
 
         self.lua.set("set_pixel", hlua::function3(set_pixel));
-        
-        self.lua.set("draw_img", hlua::function3(_draw_texture));
-        self.lua.set("draw_sprite", hlua::function7(_draw_texture_ex));
 
+        self.lua.set("draw_img", hlua::function3(_draw_texture));
+        self.lua
+            .set("draw_sprite", hlua::function7(_draw_texture_ex));
+
+        self.lua.set("clear_screen", hlua::function1(_clear_screen));
         self.lua.set("draw_rect", hlua::function5(_draw_rect));
-        self.lua.set("draw_rect_lines", hlua::function6(_draw_rect_lines));
+        self.lua
+            .set("draw_rect_lines", hlua::function6(_draw_rect_lines));
 
         self.lua.set("draw_text", hlua::function4(draw_text));
 
@@ -418,8 +435,10 @@ impl<'a> App<'a> {
         self.lua.set("show_mouse", hlua::function1(show_mouse));
         self.lua.set("mouse_pos", hlua::function0(_mouse_pos));
         self.lua.set("mouse_down", hlua::function1(_mouse_down));
-        self.lua.set("mouse_pressed", hlua::function1(_mouse_pressed));
-        self.lua.set("mouse_released", hlua::function1(_mouse_released));
+        self.lua
+            .set("mouse_pressed", hlua::function1(_mouse_pressed));
+        self.lua
+            .set("mouse_released", hlua::function1(_mouse_released));
         self.lua.set("key_down", hlua::function1(_key_down));
         self.lua.set("key_pressed", hlua::function1(_key_pressed));
         self.lua.set("key_released", hlua::function1(_key_released));
@@ -430,29 +449,36 @@ impl<'a> App<'a> {
         let mut base_copy = BASE_PATH.clone();
         base_copy.push("?");
 
-        self.lua.execute::<()>(
-            std::format!(
-                "package.path = package.path .. ';{}.lua'",
-                str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
+        self.lua
+            .execute::<()>(
+                std::format!(
+                    "package.path = package.path .. ';{}.lua'",
+                    str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
+                )
+                .as_str(),
             )
-            .as_str(),
-        )
-        .unwrap();
-
-        self.lua.execute::<()>("fennel = require('fennel')").unwrap();
-        self.lua.execute::<()>("table.insert(package.loaders or package.searchers, fennel.searcher)")
             .unwrap();
 
-            self.lua.execute::<()>(
-            std::format!(
-                "fennel.path = fennel.path .. ';{}.fnl'",
-                str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
-            )
-            .as_str(),
-        )
-        .unwrap();
+        self.lua
+            .execute::<()>("fennel = require('fennel')")
+            .unwrap();
+        self.lua
+            .execute::<()>("table.insert(package.loaders or package.searchers, fennel.searcher)")
+            .unwrap();
 
-        self.lua.execute::<()>("reloader = require('reloader')").unwrap();
+        self.lua
+            .execute::<()>(
+                std::format!(
+                    "fennel.path = fennel.path .. ';{}.fnl'",
+                    str::replace(base_copy.to_str().unwrap(), "\\", "\\\\")
+                )
+                .as_str(),
+            )
+            .unwrap();
+
+        self.lua
+            .execute::<()>("reloader = require('reloader')")
+            .unwrap();
 
         match self.lua.execute::<()>("app = require(\"app\")") {
             Err(e) => print_lua_error(&e),
@@ -465,7 +491,6 @@ impl<'a> App<'a> {
             Err(e) => print_lua_error(e),
             _ => (),
         }
-
     }
 
     fn set_working_directory(&self) {
@@ -478,7 +503,9 @@ impl<'a> App<'a> {
     }
 
     fn root_is_prefix_of(&self, path: &Path) -> bool {
-        path.canonicalize().unwrap().starts_with(self.root.canonicalize().unwrap())
+        path.canonicalize()
+            .unwrap()
+            .starts_with(self.root.canonicalize().unwrap())
     }
 
     async fn reload(&mut self, path: PathBuf) {
@@ -486,9 +513,20 @@ impl<'a> App<'a> {
         let root_s = self.root.to_str().unwrap();
         let mime = path.extension().and_then(OsStr::to_str);
         // reload! "C:\\dev\\rust\\fen2\\files\\testapp\\app.fnl" "../testapp" None
-        println!("reload! {:?} {:?} {:?}", path_s, root_s, path_s.strip_prefix(root_s));
+        println!(
+            "reload! {:?} {:?} {:?}",
+            path_s,
+            root_s,
+            path_s.strip_prefix(root_s)
+        );
         // strip the app's root
-        match path.canonicalize().unwrap().to_str().unwrap().strip_prefix(self.root.canonicalize().unwrap().to_str().unwrap()) {
+        match path
+            .canonicalize()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .strip_prefix(self.root.canonicalize().unwrap().to_str().unwrap())
+        {
             Some(_s) => {
                 let s = _s.strip_prefix(&"\\").unwrap_or(_s);
                 println!("{:?} changed", s);
@@ -584,20 +622,18 @@ async fn main() {
         system_app.set_working_directory();
         _handle_unloaded_textures().await;
         _handle_unloaded_sounds().await;
-        clear_background(WHITE);
+
 
         let dt = instant.elapsed().as_secs_f64() - elapsed;
         elapsed = instant.elapsed().as_secs_f64();
 
         system_app.update(dt);
 
-
-
         //texture.update(&*IMAGE.lock().unwrap());
         //draw_texture(texture, 0., 0., WHITE);
 
         set_default_camera();
-        clear_background(BLACK);
+
 
         draw_texture_ex(
             &render.texture,
@@ -618,14 +654,13 @@ async fn main() {
                 let apps = APPS.lock().unwrap();
                 for value in apps.values() {
                     let mut a = value.lock().unwrap();
-                    
+
                     if a.root_is_prefix_of(&path) {
-                        
                         a.set_working_directory();
                         a.reload(path.clone()).await;
                     }
                 }
-            
+
                 if system_app.root_is_prefix_of(path.as_path()) {
                     system_app.set_working_directory();
                     system_app.reload(path).await;

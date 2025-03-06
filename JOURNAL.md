@@ -275,3 +275,18 @@ Maybe picking this up again. Updated macroquad dep for new rust version and tryi
 ok weird I just put a clone() in `render_cam.render_target = Some(render.clone());` per some examples on macroquad docs, why does that work.
 
 Part of me wants to look into redoing this project with C and SDL or maybe raylib.  Apart from fighting the borrow checker there was problems with my builds not linking to libc correctly for some people AFAIK, and it was a known issue with rust executables
+
+# 3-5-2025
+
+Back in this codebase. Ostensibly toying with making a roguelike for 7drl but probably just going to poke at fen2.
+
+It seems redraw clear happens every frame, this should be explicit! Added a clear_screen function to facilitate this.  Only issue is that my `system` app switches between other apps which might not know they need to be redrawn.
+
+In early journal notes I discuss having render textures assigned to apps. That would avoid this problem because the textures would persist. (a lot of implementation work though). I'd want to call lua functions when those textures were resized anyway.
+
+I could hard code a `app_focused` function between lua processes.. not what I want.
+
+I could set up some sort of inter-process message passing.. would payload have to passed through rust?
+
+
+when you save a file the main app.fnl doesn't rerun, but during developing for fen2 i feel it should

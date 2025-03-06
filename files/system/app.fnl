@@ -49,6 +49,7 @@
     (if (> app-idx (count running-apps))
       (set app-idx 0)))
   (when (= app-idx 0)
+    (clear_screen false)
     (draw_text "FEN2" 280 90 true)
     (draw_text (.. (count running-apps) " running apps") 2 10 true)
     (draw_text "[tab] to cycle app, [q] to quit current app" 186 10 true)
@@ -69,7 +70,7 @@
             (draw_sprite  "default_icon32.png" x (- y 16) 0 0 32 32))
           (draw_text path  (+ x 40) (+ y 4) (not mouse-over?))
           (if (and mouse-over? (mouse_pressed 1))
-            (let [new-app (launch_process path)] 
+            (let [new-app (launch_process path)]
               (tset running-apps new-app true)
               (set app-idx (index-of-key running-apps new-app))))))))
     (var i 0)
