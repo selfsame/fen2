@@ -33,9 +33,9 @@ Ended up using a `Mutex<HashMap<String, Font>>` which like.. doesn't feel great 
 
 ## 5-22-2022
 
-Good morning, I would like to sort out sprite rendering today.  Had some issues loading textures because it was async and lua bindings are sync, ended up with a mutex hashset of image paths to load that gets drained in the main loop. (goofy but it's working). 
+Good morning, I would like to sort out sprite rendering today.  Had some issues loading textures because it was async and lua bindings are sync, ended up with a mutex hashset of image paths to load that gets drained in the main loop. (goofy but it's working).
 
-Next i probably need to look into 
+Next i probably need to look into
 - [ ] image alpha
 - [ ] clipping (maybe render textures? all I really need is squares)
 
@@ -53,7 +53,7 @@ I'll just need to identify which of these path fragment keys match the file path
 
 Let's try setting the working directory for the lua processes and resolving the specific file that changed.
 
-changing the working directory to the "app" but first problem is my fennel and system files are elsewhere, worried that lua needs to be spun up with the right cwd for it's searchers. Guess i could load those two files from rust/hlua.. 
+changing the working directory to the "app" but first problem is my fennel and system files are elsewhere, worried that lua needs to be spun up with the right cwd for it's searchers. Guess i could load those two files from rust/hlua..
 
 OK thinking my easiest route is to add BASE_PATH to package.path, then i should be able to load `fennel.lua` and `system.fnl` with no fuss. ... This worked (had to add it to fennel.path as well) My app is running with it's own root path, and seems like `load_img` and `require` is also working from this new root.
 
@@ -145,7 +145,7 @@ Picking this back up! Giving a fennel conf talk in about a month on it.  Hoping 
 
 Yeah instead of borrowing a Path and having to use a lifetime for the App struct that contained it I just had to use PathBuf so the struct owns it.  Everything I had wanted to do should be straight forward now!
 
-Next steps: 
+Next steps:
 [ ] Have system launch another process and pass update to it every frame
 [ ] sandboxed file listing
 [ ] start working through system fns described above
@@ -190,7 +190,7 @@ Brought `hlua` up to speed but the Lua struct requires a lifetime and I get into
 
 # 10-24-2022
 
-trying to pass `PathBuf::from(&path).as_path()` into my `App<'a>` is failing with "argument requires that borrow lasts for `'static`". I am confused because I thought the argument was not used in the struct itself (it's used to create a PathBuf). 
+trying to pass `PathBuf::from(&path).as_path()` into my `App<'a>` is failing with "argument requires that borrow lasts for `'static`". I am confused because I thought the argument was not used in the struct itself (it's used to create a PathBuf).
 * I could try to use an owned pathbuf as an argument
 * I could try to annotate the argument with a 'b lifetime
 
@@ -226,7 +226,7 @@ Ok reloading an app works but reloading the system app seems to fail by the laun
 
 # 11-01-2022
 
-Thinking about communication between processes and the system app.  Ideally the 'children' can call some standard functions (quit, new_render_texture, etc.) handled by the system and not the rust environment.  This allows the system to manage windows, clean up, etc. 
+Thinking about communication between processes and the system app.  Ideally the 'children' can call some standard functions (quit, new_render_texture, etc.) handled by the system and not the rust environment.  This allows the system to manage windows, clean up, etc.
 
 My current plan: said functions will get ahold of the system app and call corresponding handlers, returning their returned values. My only worry is that the `system` app will be hard to access, but I can always store it under a special key.
 
@@ -248,7 +248,7 @@ Another thought, apps will need to have ownership of their render textures.
 
 # 11-07-2022
 
-Implemented `list_files`!  At some point I'm going to need to work on sandboxing, some thoughts on that: `list_files` should constrain the path to within the fen2 `files` dir.  I'll also want to ensure a root `/foo` parses as `files/foo`.  Lua's `io` module needs to be removed, although `io.open` needs to be wrapped in something that sanitizes it's path argument. 
+Implemented `list_files`!  At some point I'm going to need to work on sandboxing, some thoughts on that: `list_files` should constrain the path to within the fen2 `files` dir.  I'll also want to ensure a root `/foo` parses as `files/foo`.  Lua's `io` module needs to be removed, although `io.open` needs to be wrapped in something that sanitizes it's path argument.
 
 Revisiting the render texture/window thing to see if this can be a bit simpler:
 
@@ -286,7 +286,13 @@ In early journal notes I discuss having render textures assigned to apps. That w
 
 I could hard code a `app_focused` function between lua processes.. not what I want.
 
-I could set up some sort of inter-process message passing.. would payload have to passed through rust?
+I could set up some sort of inter-process message passing.. would payload have to be passed through rust?
+Something like `(send_message pid payload)` and leave it up to user system space to decide if apps should
+get information about each other.
+
+well I implemented a simple _send_message with a String payload, but getting an "attempted to leave type `&mut hlua::Lua<'_>` uninitialized, which is invalid" error when it's called. To me it looks like the exact as how I do _update_process so no clue why it's breaking. Ah it has something to do with the String I'm trying to pass into `&self.lua.execute::<()>()`
 
 
 when you save a file the main app.fnl doesn't rerun, but during developing for fen2 i feel it should
+
+# 3-6-2025

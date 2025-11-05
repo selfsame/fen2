@@ -1,0 +1,8 @@
+[
+  {
+    "context": "Workspace",
+    "bindings": {
+      "alt-t": ["task::Spawn", { "task_name": "Build & Run Project" }]
+    }
+  }
+]

@@ -71,15 +71,18 @@
           (draw_text path  (+ x 40) (+ y 4) (not mouse-over?))
           (if (and mouse-over? (mouse_pressed 1))
             (let [new-app (launch_process path)]
+
               (tset running-apps new-app true)
               (set app-idx (index-of-key running-apps new-app))))))))
     (var i 0)
     (each [app _ (pairs running-apps)]
       (set i (+ i 1))
       (when (= i app-idx)
+        (if (key_pressed "m")
+          (send_message app "hello child"))
         (if (key_pressed "q")
           (handle_quit app)
-          (update_process app dt)))))
+          (update_process app dt) ))))
 
 
 

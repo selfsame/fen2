@@ -291,6 +291,28 @@ fn _list_files(path: String) -> HashMap<String, String> {
     res
 }
 
+fn _send_message(id: String, payload: String) {
+    // TODO assuming the sender had execution working directory we should
+    // reset that after the message call
+    let cwd = env::current_dir().unwrap();
+    let apps = APPS.lock().unwrap();
+
+    match apps.get(&id.clone()) {
+        Some(app) => {
+            let mut app = app.lock().unwrap();
+            println!("_send_message found app {:?}", app.id);
+            app.set_working_directory();
+            app.send_message(payload);
+        }
+        None => (),
+    }
+    unsafe {
+        let sptr = system_app_pointer();
+        let sys = &mut *sptr;
+        sys.set_working_directory();
+    }
+}
+
 // System bindings
 
 fn _launch_process(path: String) -> String {
@@ -444,6 +466,7 @@ impl<'a> App<'a> {
         self.lua.set("key_released", hlua::function1(_key_released));
 
         self.lua.set("list_files", hlua::function1(_list_files));
+        self.lua.set("send_message", hlua::function2(_send_message));
 
         // both package.path and fennel.path use '?' as wildcard
         let mut base_copy = BASE_PATH.clone();
@@ -565,6 +588,16 @@ impl<'a> App<'a> {
             _ => (),
         }
     }
+
+    fn send_message(&mut self, payload: String) {
+        match &self.lua.execute::<()>(&format!(
+            "if app.message then app.message({:?}) end",
+            payload
+        )) {
+            Err(e) => print_lua_error(e),
+            _ => (),
+        }
+    }
 }
 
 #[macroquad::main(window_conf)]
@@ -623,7 +656,6 @@ async fn main() {
         _handle_unloaded_textures().await;
         _handle_unloaded_sounds().await;
 
-
         let dt = instant.elapsed().as_secs_f64() - elapsed;
         elapsed = instant.elapsed().as_secs_f64();
 
@@ -633,7 +665,6 @@ async fn main() {
         //draw_texture(texture, 0., 0., WHITE);
 
         set_default_camera();
-
 
         draw_texture_ex(
             &render.texture,

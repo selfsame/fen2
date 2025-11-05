@@ -1,0 +1,8 @@
+[
+  {
+    "label": "Build & Run Project",
+    "command": "cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .. && make && ./fen2",
+    "cwd": "$ZED_WORKTREE_ROOT/build",
+    "shell": "system"
+  }
+]

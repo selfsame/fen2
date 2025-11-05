@@ -48,6 +48,7 @@
     (draw_text "roguelike"  10 10 true)
     (draw-map _G.current_level)))
 
-
+(fn message [payload]
+  (print "??"))
 
 {:update update}
