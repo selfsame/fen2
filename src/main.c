@@ -1,15 +1,29 @@
 
+#include <linux/limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#ifdef _WIN32
+    #include <direct.h>
+    #define chdir _chdir
+    #define PATH_SEP '\\'
+#else
+    #include <unistd.h>
+    #define PATH_SEP '/'
+#endif
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
 #include "keys.h"
 
+char *base_path = NULL;
+
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+static struct App *system_app = NULL;
+
 
 int CUID = 0;
 int uid(){
@@ -30,20 +44,28 @@ static int _quit(lua_State *L){
     return 0;
 }
 
-struct App new_app(char path[], bool is_system){
-    lua_State *L = luaL_newstate(); // Create a new Lua state
-    luaL_openlibs(L);             // Open standard libraries
+static int _load_img(lua_State *L){
+    const char *img_path = lua_tostring(L, 1);
+    // https://examples.libsdl.org/SDL3/renderer/06-textures/
+    return 0;
+}
 
-    lua_register(L, "quit", _quit);
+static int _draw_text(lua_State *L){
+    const char *message = lua_tostring(L, 1);
+    const int x = lua_tointeger(L, 2);
+    const int y = lua_tointeger(L, 3);
+    const bool color = lua_tointeger(L, 4);
 
-    struct App app = {
-        .id = uid(),
-        .lua = L,  // Store the pointer
-        .is_system = is_system
-    };
-    strncpy(app.root, path, PATH_MAX - 1);
+    // x = ((w / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * SDL_strlen(message)) / 2;
+    // y = ((h / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2;
+    SDL_RenderDebugText(renderer, x, y, message);
+    return 0;
+}
 
-    return app;
+void app_set_cwd(struct App app){
+    if (chdir(app.root) != 0) {
+        printf("Failed to change to app directory: %s\n", app.root);
+    }
 }
 
 void app_eval(struct App app, char *s){
@@ -58,11 +80,58 @@ void app_eval(struct App app, char *s){
     }
 }
 
+struct App new_app(char path[], bool is_system){
+    lua_State *L = luaL_newstate(); // Create a new Lua state
+    luaL_openlibs(L);             // Open standard libraries
+
+    lua_register(L, "quit", _quit);
+    lua_register(L, "load_img", _load_img);
+    lua_register(L, "draw_text", _draw_text);
+
+    struct App app = {
+        .id = uid(),
+        .lua = L,  // Store the pointer
+        .is_system = is_system
+    };
+
+    char app_path[PATH_MAX];
+    snprintf(app_path, sizeof(app_path), "%sfiles%c%s", base_path, PATH_SEP, path);
+
+    strncpy(app.root, app_path, PATH_MAX - 1);
+    printf("app.root: %s\n", app.root);
+
+    app_set_cwd(app);
+
+    char package_path[PATH_MAX * 2];
+    char fennel_path[PATH_MAX * 2];
+
+    snprintf(package_path, sizeof(package_path),
+                "package.path = package.path .. ';%s/?.lua'", base_path);
+    snprintf(fennel_path, sizeof(fennel_path),
+                "fennel.path = fennel.path .. ';%s/?.fnl'", base_path);
+
+    app_eval(app, package_path);
+    app_eval(app, "fennel = require('fennel')");
+    app_eval(app, "table.insert(package.loaders or package.searchers, fennel.searcher)");
+    app_eval(app, fennel_path);
+    app_eval(app, "reloader = require('reloader')");
+    app_eval(app, "app = require(\"app\")");
+    app_eval(app, "if app.start then app.start() end");
+
+    return app;
+}
+
+
+
 void Fen2Init(){
-    struct App x = new_app("system", true);
-    printf("App id: %d, path: %s\n", x.id, x.root);
-    app_eval(x, "print('ok ok ok!')");
-    app_eval(x, "quit()");
+    base_path = SDL_GetBasePath();
+    printf("Base path: %s\n", base_path);
+
+    system_app = malloc(sizeof(struct App));
+    *system_app = new_app("hello-world", true);
+    printf("App id: %d, path: %s\n", system_app->id, system_app->root);
+    app_eval(*system_app, "print('ok ok ok!')");
+    //app_eval(*system_app, "quit()");
     //app_eval(x, "print('ok ok ok2!')");
 }
 
@@ -93,22 +162,24 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
-    const char *message = "Hello World!";
+
     int w = 0, h = 0;
-    float x, y;
+
     const float scale = 4.0f;
 
     /* Center the message and scale it up */
     SDL_GetRenderOutputSize(renderer, &w, &h);
     SDL_SetRenderScale(renderer, scale, scale);
-    x = ((w / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * SDL_strlen(message)) / 2;
-    y = ((h / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2;
+
 
     /* Draw the message */
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderDebugText(renderer, x, y, message);
+
+    app_set_cwd(*system_app);
+    app_eval(*system_app, "if app.update then app.update() end");
+
     SDL_RenderPresent(renderer);
 
     return SDL_APP_CONTINUE;
