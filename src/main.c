@@ -2,6 +2,7 @@
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <khash.h>
 #define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
@@ -18,11 +19,17 @@
 #include <lauxlib.h>
 #include "keys.h"
 
+KHASH_MAP_INIT_STR(texture_cache, SDL_Texture*)
+
 char *base_path = NULL;
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+
 static struct App *system_app = NULL;
+
+/* pointer to the app that is evaluating code */
+static struct App *current_app = NULL;
 
 
 int CUID = 0;
@@ -36,6 +43,7 @@ struct App {
     char root[PATH_MAX];
     lua_State *lua;
     bool is_system;
+    khash_t(texture_cache) *textures;
 };
 
 static int _quit(lua_State *L){
@@ -45,8 +53,35 @@ static int _quit(lua_State *L){
 }
 
 static int _load_img(lua_State *L){
+
     const char *img_path = lua_tostring(L, 1);
+
     // https://examples.libsdl.org/SDL3/renderer/06-textures/
+    char *full_path = NULL;
+    SDL_Surface *surface = NULL;
+    static SDL_Texture *texture = NULL;
+
+    SDL_asprintf(&full_path, "%s%s", current_app->root, img_path);  /* allocate a string of the full file path */
+    surface = SDL_LoadPNG(full_path);
+    if (!surface) {
+        SDL_Log("Couldn't load bitmap: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    SDL_free(full_path);  /* done with this, the file is loaded. */
+
+    int texture_width = surface->w;
+    int texture_height = surface->h;
+
+    texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (!texture) {
+        SDL_Log("Couldn't create static texture: %s", SDL_GetError());
+        return SDL_APP_FAILURE;
+    }
+
+    SDL_DestroySurface(surface);  /* done with this, the texture has a copy of the pixels now. */
+
+
     return 0;
 }
 
@@ -69,6 +104,8 @@ void app_set_cwd(struct App app){
 }
 
 void app_eval(struct App app, char *s){
+    current_app = &app;
+    app_set_cwd(app);
     if (luaL_loadstring(app.lua, s) == LUA_OK) {
         if (lua_pcall(app.lua, 0, 0, 0) != LUA_OK) {
             // Handle error
@@ -93,6 +130,8 @@ struct App new_app(char path[], bool is_system){
         .lua = L,  // Store the pointer
         .is_system = is_system
     };
+
+    app.textures = kh_init(texture_cache);
 
     char app_path[PATH_MAX];
     snprintf(app_path, sizeof(app_path), "%sfiles%c%s", base_path, PATH_SEP, path);

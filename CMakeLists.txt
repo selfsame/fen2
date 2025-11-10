@@ -12,6 +12,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/")
 
+
+
 # This assumes the SDL source is available in vendored/SDL
 add_subdirectory(vendored/SDL EXCLUDE_FROM_ALL)
 
@@ -26,9 +28,10 @@ add_executable(fen2 WIN32
     src/keys.c
 )
 
-# Link to SDL3 and Lua
+# Link to SDL3 and Lua, etc..
 target_link_libraries(fen2 PRIVATE SDL3::SDL3 lua m)
 target_include_directories(fen2 PRIVATE vendored/lua-5.4.8)
+target_include_directories(fen2 PRIVATE vendored/klib)
 
 # Copy files directory to build
 file(COPY fennel.lua reloader.fnl DESTINATION ${CMAKE_BINARY_DIR})
