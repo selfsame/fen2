@@ -46,27 +46,86 @@ struct App {
     khash_t(texture_cache) *textures;
 };
 
+static void set_bw_color(bool c){
+    if (c) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    } else {
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    }
+}
+
 static int _quit(lua_State *L){
     //this causes a segfault
     lua_close(L);
     return 0;
 }
 
-static int _load_img(lua_State *L){
+static int _clear_screen(lua_State *L){
+    const bool c = lua_toboolean(L, 1);
+    set_bw_color(c);
+    SDL_RenderClear(renderer);
+    return 0;
+}
 
+static int _set_pixel(lua_State *L){
+    const int x = lua_tointeger(L, 1);
+    const int y = lua_tointeger(L, 2);
+    const bool c = lua_toboolean(L, 3);
+    set_bw_color(c);
+    SDL_RenderPoint(renderer, x, y);
+    return 0;
+}
+
+static int _draw_rect(lua_State *L){
+    const int x = lua_tointeger(L, 1);
+    const int y = lua_tointeger(L, 2);
+    const int w = lua_tointeger(L, 3);
+    const int h = lua_tointeger(L, 4);
+    const bool c = lua_toboolean(L, 5);
+    set_bw_color(c);
+    SDL_FRect r = {x, y, w, h};
+    SDL_RenderFillRect(renderer, &r);
+    return 0;
+}
+
+static int _draw_rect_lines(lua_State *L){
+    const int x = lua_tointeger(L, 1);
+    const int y = lua_tointeger(L, 2);
+    const int w = lua_tointeger(L, 3);
+    const int h = lua_tointeger(L, 4);
+    const bool c = lua_toboolean(L, 5);
+    set_bw_color(c);
+    SDL_FRect r = {x, y, w, h};
+    SDL_RenderRect(renderer, &r);
+    return 0;
+}
+
+
+
+
+static int _load_img(lua_State *L){
     const char *img_path = lua_tostring(L, 1);
+
+    // check app.textures cache
+    khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
+    if (ck != kh_end(current_app->textures)) {
+        // Already cached, return existing texture
+        printf("load_img cached: %s", img_path);
+        return 0;
+    }
 
     // https://examples.libsdl.org/SDL3/renderer/06-textures/
     char *full_path = NULL;
     SDL_Surface *surface = NULL;
     static SDL_Texture *texture = NULL;
 
-    SDL_asprintf(&full_path, "%s%s", current_app->root, img_path);  /* allocate a string of the full file path */
+    SDL_asprintf(&full_path, "%s%c%s", current_app->root, PATH_SEP, img_path);  /* allocate a string of the full file path */
     surface = SDL_LoadPNG(full_path);
     if (!surface) {
         SDL_Log("Couldn't load bitmap: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+
 
     SDL_free(full_path);  /* done with this, the file is loaded. */
 
@@ -79,9 +138,53 @@ static int _load_img(lua_State *L){
         return SDL_APP_FAILURE;
     }
 
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+
+    int ret;
+    khint_t k = kh_put(texture_cache, current_app->textures, img_path, &ret);
+    kh_value(current_app->textures, k) = texture;
+
     SDL_DestroySurface(surface);  /* done with this, the texture has a copy of the pixels now. */
 
+    return 0;
+}
 
+static int _draw_img(lua_State *L){
+    const char *img_path = lua_tostring(L, 1);
+    const int x = lua_tointeger(L, 2);
+    const int y = lua_tointeger(L, 3);
+    // check app.textures cache
+    khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
+    if (ck == kh_end(current_app->textures)) {
+        // Already cached, return existing texture
+        printf("Unable to draw_img, no image loaded for: %s", img_path);
+        return 0;
+    }
+    SDL_Texture *texture = kh_value(current_app->textures, ck);
+    SDL_FRect dest = {x, y, texture->w, texture->h};
+    SDL_RenderTexture(renderer, texture, NULL, &dest);
+    return 0;
+}
+
+static int _draw_sprite(lua_State *L){
+    const char *img_path = lua_tostring(L, 1);
+    const int x = lua_tointeger(L, 2);
+    const int y = lua_tointeger(L, 3);
+    const int sx = lua_tointeger(L, 4);
+    const int sy = lua_tointeger(L, 5);
+    const int sw = lua_tointeger(L, 6);
+    const int sh = lua_tointeger(L, 7);
+    // check app.textures cache
+    khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
+    if (ck == kh_end(current_app->textures)) {
+        // Already cached, return existing texture
+        printf("Unable to draw_img, no image loaded for: %s", img_path);
+        return 0;
+    }
+    SDL_Texture *texture = kh_value(current_app->textures, ck);
+    SDL_FRect srce = {sx, sy, sw, sh};
+    SDL_FRect dest = {x, y, sw, sh};
+    SDL_RenderTexture(renderer, texture, &srce, &dest);
     return 0;
 }
 
@@ -122,8 +225,14 @@ struct App new_app(char path[], bool is_system){
     luaL_openlibs(L);             // Open standard libraries
 
     lua_register(L, "quit", _quit);
+    lua_register(L, "clear_screen", _clear_screen);
     lua_register(L, "load_img", _load_img);
+    lua_register(L, "draw_img", _draw_img);
+    lua_register(L, "draw_sprite", _draw_sprite);
     lua_register(L, "draw_text", _draw_text);
+    lua_register(L, "set_pixel", _set_pixel);
+    lua_register(L, "draw_rect", _draw_rect);
+    lua_register(L, "draw_rect_lines", _draw_rect_lines);
 
     struct App app = {
         .id = uid(),
@@ -178,7 +287,7 @@ void Fen2Init(){
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     /* Create the window */
-    if (!SDL_CreateWindowAndRenderer("Hello World!", 800, 600, SDL_WINDOW_FULLSCREEN, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Hello World!", 640, 480, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
         SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
@@ -191,8 +300,7 @@ SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 /* This function runs when a new event (mouse input, keypresses, etc) occurs. */
 SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 {
-    if (event->type == SDL_EVENT_KEY_DOWN ||
-        event->type == SDL_EVENT_QUIT) {
+    if (event->type == SDL_EVENT_QUIT) {
         return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
     }
     return SDL_APP_CONTINUE;
@@ -204,7 +312,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
 
     int w = 0, h = 0;
 
-    const float scale = 4.0f;
+    const float scale = 1.0f;
 
     /* Center the message and scale it up */
     SDL_GetRenderOutputSize(renderer, &w, &h);
