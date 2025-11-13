@@ -14,6 +14,8 @@
     #include <unistd.h>
     #define PATH_SEP '/'
 #endif
+#include <dirent.h>
+#include <sys/stat.h>
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -58,6 +60,44 @@ static int _quit(lua_State *L){
     //this causes a segfault
     lua_close(L);
     return 0;
+}
+
+static int _list_files(lua_State *L){
+    const char *path = lua_tostring(L, 1);
+    lua_newtable(L);
+    DIR *dir = opendir(path);
+    if (!dir) {
+        lua_pushstring(L, "error opening directory");
+        return 1;
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+            continue;
+        }
+
+        /* path for stat */
+        char full_path[PATH_MAX];
+        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+
+        struct stat statbuf;
+        if (stat(full_path, &statbuf) == 0) {
+            const char *type;
+            if (S_ISDIR(statbuf.st_mode)) {
+                type = "dir";
+            } else if (S_ISREG(statbuf.st_mode)) {
+                type = "file";
+            } else {
+                continue;
+            }
+            printf("* %s (%s)\n", entry->d_name, type);
+            lua_pushstring(L, entry->d_name);
+            lua_pushstring(L, type);
+            lua_settable(L, -3);
+        }
+    }
+    closedir(dir);
+    return 1;
 }
 
 static int _clear_screen(lua_State *L){
@@ -225,6 +265,7 @@ struct App new_app(char path[], bool is_system){
     luaL_openlibs(L);             // Open standard libraries
 
     lua_register(L, "quit", _quit);
+    lua_register(L, "list_files", _list_files);
     lua_register(L, "clear_screen", _clear_screen);
     lua_register(L, "load_img", _load_img);
     lua_register(L, "draw_img", _draw_img);
@@ -233,6 +274,8 @@ struct App new_app(char path[], bool is_system){
     lua_register(L, "set_pixel", _set_pixel);
     lua_register(L, "draw_rect", _draw_rect);
     lua_register(L, "draw_rect_lines", _draw_rect_lines);
+
+
 
     struct App app = {
         .id = uid(),
