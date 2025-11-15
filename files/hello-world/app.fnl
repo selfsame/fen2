@@ -21,5 +21,6 @@
 )
 
 (print "hello-world")
+(quit)
 
 {:update update}

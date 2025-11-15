@@ -22,11 +22,14 @@
 #include "keys.h"
 
 KHASH_MAP_INIT_STR(texture_cache, SDL_Texture*)
+KHASH_MAP_INIT_INT(app_cache, struct App*)
 
-char *base_path = NULL;
+const char *base_path = NULL;
 
 static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
+
+static kh_app_cache_t *apps = NULL;
 
 static struct App *system_app = NULL;
 
@@ -46,6 +49,7 @@ struct App {
     lua_State *lua;
     bool is_system;
     khash_t(texture_cache) *textures;
+    bool queue_destroy;
 };
 
 static void set_bw_color(bool c){
@@ -57,9 +61,7 @@ static void set_bw_color(bool c){
 }
 
 static int _quit(lua_State *L){
-    //this causes a segfault
-    lua_close(L);
-    return 0;
+    current_app->queue_destroy = true;
 }
 
 static int _list_files(lua_State *L){
@@ -240,27 +242,29 @@ static int _draw_text(lua_State *L){
     return 0;
 }
 
-void app_set_cwd(struct App app){
-    if (chdir(app.root) != 0) {
-        printf("Failed to change to app directory: %s\n", app.root);
+void app_set_cwd(struct App *app){
+    if (chdir(app->root) != 0) {
+        printf("Failed to change to app directory: %s\n", app->root);
     }
 }
 
-void app_eval(struct App app, char *s){
-    current_app = &app;
+void app_eval(struct App *app, char *s){
+    current_app = app;
     app_set_cwd(app);
-    if (luaL_loadstring(app.lua, s) == LUA_OK) {
-        if (lua_pcall(app.lua, 0, 0, 0) != LUA_OK) {
+    if (luaL_loadstring(app->lua, s) == LUA_OK) {
+        if (lua_pcall(app->lua, 0, 0, 0) != LUA_OK) {
             // Handle error
-            printf("Lua error: %s\n", lua_tostring(app.lua, -1));
+            printf("Lua error: %s\n", lua_tostring(app->lua, -1));
         }
     } else {
         // Handle loading error
-        printf("Lua loading error: %s\n", lua_tostring(app.lua, -1));
+        printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
     }
 }
 
-struct App new_app(char path[], bool is_system){
+struct App * new_app(char path[], bool is_system){
+    struct App *app = malloc(sizeof(struct App));
+
     lua_State *L = luaL_newstate(); // Create a new Lua state
     luaL_openlibs(L);             // Open standard libraries
 
@@ -275,21 +279,23 @@ struct App new_app(char path[], bool is_system){
     lua_register(L, "draw_rect", _draw_rect);
     lua_register(L, "draw_rect_lines", _draw_rect_lines);
 
-
-
-    struct App app = {
-        .id = uid(),
-        .lua = L,  // Store the pointer
-        .is_system = is_system
-    };
-
-    app.textures = kh_init(texture_cache);
+    app->id = uid();
+    app->lua = L;
+    app->is_system = is_system;
+    app->textures = kh_init(texture_cache);
+    app->queue_destroy = false;
 
     char app_path[PATH_MAX];
     snprintf(app_path, sizeof(app_path), "%sfiles%c%s", base_path, PATH_SEP, path);
 
-    strncpy(app.root, app_path, PATH_MAX - 1);
-    printf("app.root: %s\n", app.root);
+    strncpy(app->root, app_path, PATH_MAX - 1);
+    printf("app.root: %s\n", app->root);
+
+    /* register app in the apps cache by id */
+    int ret;
+    khint_t k = kh_put(app_cache, apps, app->id, &ret);
+    kh_value(apps, k) = app;
+
 
     app_set_cwd(app);
 
@@ -312,18 +318,32 @@ struct App new_app(char path[], bool is_system){
     return app;
 }
 
-
+void app_destroy(struct App *app){
+    printf("destroying app: %s\n", app->root);
+    bool is_system = app->is_system;
+    khint_t k;
+    for (k = kh_begin(app->textures); k != kh_end(app->textures); ++k) {
+        if (kh_exist(app->textures, k)) {
+            SDL_Texture *texture = kh_val(app->textures, k);
+            SDL_DestroyTexture(texture);
+        }
+    }
+    kh_destroy(texture_cache, app->textures);
+    if (app->lua) lua_close(app->lua);
+    khint_t app_key = kh_get(app_cache, apps, app->id);
+    if (app_key != kh_end(apps)) {
+        kh_del(app_cache, apps, app_key);
+    }
+    free(app);
+    if (is_system) exit(0);
+}
 
 void Fen2Init(){
+    apps = kh_init(app_cache);
     base_path = SDL_GetBasePath();
     printf("Base path: %s\n", base_path);
-
-    system_app = malloc(sizeof(struct App));
-    *system_app = new_app("hello-world", true);
+    system_app = new_app("hello-world", true);
     printf("App id: %d, path: %s\n", system_app->id, system_app->root);
-    app_eval(*system_app, "print('ok ok ok!')");
-    //app_eval(*system_app, "quit()");
-    //app_eval(x, "print('ok ok ok2!')");
 }
 
 /* This function runs once at startup. */
@@ -367,10 +387,17 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-    app_set_cwd(*system_app);
-    app_eval(*system_app, "if app.update then app.update() end");
+    app_set_cwd(system_app);
+    app_eval(system_app, "if app.update then app.update() end");
 
     SDL_RenderPresent(renderer);
+
+    struct App *app;
+    kh_foreach_value(apps, app, {
+        if (app->queue_destroy == true) {
+            app_destroy(app);
+        }
+    });
 
     return SDL_APP_CONTINUE;
 }
