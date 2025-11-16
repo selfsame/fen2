@@ -36,11 +36,31 @@ static struct App *system_app = NULL;
 /* pointer to the app that is evaluating code */
 static struct App *current_app = NULL;
 
+/* forward declaration */
+struct App * new_app(char path[], bool is_system);
 
 int CUID = 0;
 int uid(){
     CUID += 1;
     return CUID;
+}
+
+static Uint32 current_mouse = 0;
+static Uint32 previous_mouse = 0;
+
+static void update_mouse_states() {
+    previous_mouse = current_mouse;
+    float x, y;
+    current_mouse = SDL_GetMouseState(&x, &y);
+}
+
+static Uint8 current_keys[SDL_SCANCODE_COUNT] = {0};
+static Uint8 previous_keys[SDL_SCANCODE_COUNT] = {0};
+
+static void update_key_states() {
+    memcpy(previous_keys, current_keys, sizeof(current_keys));
+    const Uint8 *state = SDL_GetKeyboardState(NULL);
+    memcpy(current_keys, state, sizeof(current_keys));
 }
 
 struct App {
@@ -59,6 +79,29 @@ static void set_bw_color(bool c){
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
     }
 }
+
+
+void app_set_cwd(struct App *app){
+    if (chdir(app->root) != 0) {
+        printf("Failed to change to app directory: %s\n", app->root);
+    }
+}
+
+void app_eval(struct App *app, char *s){
+    current_app = app;
+    app_set_cwd(app);
+    if (luaL_loadstring(app->lua, s) == LUA_OK) {
+        if (lua_pcall(app->lua, 0, 0, 0) != LUA_OK) {
+            // Handle error
+            printf("Lua error: %s\n", lua_tostring(app->lua, -1));
+        }
+    } else {
+        // Handle loading error
+        printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
+    }
+}
+
+
 
 static int _quit(lua_State *L){
     current_app->queue_destroy = true;
@@ -92,7 +135,6 @@ static int _list_files(lua_State *L){
             } else {
                 continue;
             }
-            printf("* %s (%s)\n", entry->d_name, type);
             lua_pushstring(L, entry->d_name);
             lua_pushstring(L, type);
             lua_settable(L, -3);
@@ -106,6 +148,16 @@ static int _clear_screen(lua_State *L){
     const bool c = lua_toboolean(L, 1);
     set_bw_color(c);
     SDL_RenderClear(renderer);
+    return 0;
+}
+
+static int _load_sound(lua_State *L){
+    const char *path = lua_tostring(L, 1);
+    return 0;
+}
+
+static int _play_sound(lua_State *L){
+    const char *path = lua_tostring(L, 1);
     return 0;
 }
 
@@ -146,13 +198,12 @@ static int _draw_rect_lines(lua_State *L){
 
 
 static int _load_img(lua_State *L){
-    const char *img_path = lua_tostring(L, 1);
-
+    const char *_img_path = lua_tostring(L, 1);
+    char *img_path = strdup(_img_path);
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck != kh_end(current_app->textures)) {
         // Already cached, return existing texture
-        printf("load_img cached: %s", img_path);
         return 0;
     }
 
@@ -227,40 +278,133 @@ static int _draw_sprite(lua_State *L){
     SDL_FRect srce = {sx, sy, sw, sh};
     SDL_FRect dest = {x, y, sw, sh};
     SDL_RenderTexture(renderer, texture, &srce, &dest);
-    return 0;
+return 0;
 }
 
 static int _draw_text(lua_State *L){
     const char *message = lua_tostring(L, 1);
     const int x = lua_tointeger(L, 2);
     const int y = lua_tointeger(L, 3);
-    const bool color = lua_tointeger(L, 4);
-
+    const bool c = lua_toboolean(L, 4);
+    set_bw_color(c);
     // x = ((w / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE * SDL_strlen(message)) / 2;
     // y = ((h / scale) - SDL_DEBUG_TEXT_FONT_CHARACTER_SIZE) / 2;
     SDL_RenderDebugText(renderer, x, y, message);
     return 0;
 }
 
-void app_set_cwd(struct App *app){
-    if (chdir(app->root) != 0) {
-        printf("Failed to change to app directory: %s\n", app->root);
+
+
+static int _key_down(lua_State *L){
+    const char *key = lua_tostring(L, 1);
+    SDL_Scancode scancode = keycode(key);
+    if (scancode == SDL_SCANCODE_UNKNOWN) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    lua_pushboolean(L, current_keys[scancode]);
+    return 1;
+}
+
+static int _key_pressed(lua_State *L){
+    const char *key = lua_tostring(L, 1);
+    SDL_Scancode scancode = keycode(key);
+    if (scancode == SDL_SCANCODE_UNKNOWN) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    lua_pushboolean(L, current_keys[scancode] && !previous_keys[scancode]);
+    return 1;
+}
+
+static int _key_released(lua_State *L){
+    const char *key = lua_tostring(L, 1);
+    SDL_Scancode scancode = keycode(key);
+    if (scancode == SDL_SCANCODE_UNKNOWN) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+    lua_pushboolean(L, !current_keys[scancode] && previous_keys[scancode]);
+    return 1;
+}
+
+static int _mouse_pos(lua_State *L){
+    const char *key = lua_tostring(L, 1);
+    // TODO
+    float x, y;
+    SDL_GetMouseState(&x, &y);
+    lua_pushnumber(L, x);
+    lua_pushnumber(L, y);
+    return 2;
+}
+
+static Uint32 get_mouse_mask(int button) {
+    switch(button) {
+        case 1: return SDL_BUTTON_LMASK;
+        case 2: return SDL_BUTTON_MMASK;
+        case 3: return SDL_BUTTON_RMASK;
+        default: return 0;
     }
 }
 
-void app_eval(struct App *app, char *s){
-    current_app = app;
-    app_set_cwd(app);
-    if (luaL_loadstring(app->lua, s) == LUA_OK) {
-        if (lua_pcall(app->lua, 0, 0, 0) != LUA_OK) {
-            // Handle error
-            printf("Lua error: %s\n", lua_tostring(app->lua, -1));
-        }
-    } else {
-        // Handle loading error
-        printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
-    }
+static int _mouse_down(lua_State *L){
+    const int button = lua_tointeger(L, 1);
+    Uint32 mask = get_mouse_mask(button);
+    lua_pushboolean(L, current_mouse & mask);
+    return 1;
 }
+
+static int _mouse_pressed(lua_State *L){
+    const int button = lua_tointeger(L, 1);
+    Uint32 mask = get_mouse_mask(button);
+    lua_pushboolean(L, (current_mouse & mask) && !(previous_mouse & mask));
+    return 1;
+}
+
+static int _mouse_released(lua_State *L){
+    const int button = lua_tointeger(L, 1);
+    Uint32 mask = get_mouse_mask(button);
+    lua_pushboolean(L, !(current_mouse & mask) && (previous_mouse & mask));
+    return 1;
+}
+
+static int _launch_process(lua_State *L){
+    const char *path = lua_tostring(L, 1);
+
+    // hack to remove "../" prefix
+    const char *app_name = path;
+    if (strncmp(path, "../", 3) == 0) {
+        app_name = path + 3;
+    }
+    struct App * app = new_app(app_name, false);
+    lua_pushinteger(L, app->id);
+    return 1;
+}
+
+static int _update_process(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    khint_t app_key = kh_get(app_cache, apps, id);
+    if (app_key != kh_end(apps)) {
+        struct App * app;
+        app = kh_value(apps, app_key);
+        app_eval(app, "if app.update then app.update() end");
+        app_set_cwd(system_app);
+    }
+    return 0;
+}
+
+static int _close_process(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    khint_t app_key = kh_get(app_cache, apps, id);
+    if (app_key != kh_end(apps)) {
+        struct App * app;
+        app = kh_value(apps, app_key);
+        app->queue_destroy = true;
+    }
+    return 0;
+}
+
+
 
 struct App * new_app(char path[], bool is_system){
     struct App *app = malloc(sizeof(struct App));
@@ -271,6 +415,8 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "quit", _quit);
     lua_register(L, "list_files", _list_files);
     lua_register(L, "clear_screen", _clear_screen);
+    lua_register(L, "load_sound", _load_sound);
+    lua_register(L, "play_sound", _play_sound);
     lua_register(L, "load_img", _load_img);
     lua_register(L, "draw_img", _draw_img);
     lua_register(L, "draw_sprite", _draw_sprite);
@@ -278,6 +424,25 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "set_pixel", _set_pixel);
     lua_register(L, "draw_rect", _draw_rect);
     lua_register(L, "draw_rect_lines", _draw_rect_lines);
+
+    lua_register(L, "mouse_pos", _mouse_pos);
+
+
+    lua_register(L, "mouse_pressed", _mouse_pressed);
+    lua_register(L, "mouse_down", _mouse_down);
+    lua_register(L, "mouse_released", _mouse_released);
+
+    lua_register(L, "key_pressed", _key_pressed);
+    lua_register(L, "key_down", _key_down);
+    lua_register(L, "key_released", _key_released);
+
+    /* System */
+    if (is_system) {
+        lua_register(L, "launch_process", _launch_process);
+        lua_register(L, "update_process", _update_process);
+        lua_register(L, "close_process", _close_process);
+    }
+
 
     app->id = uid();
     app->lua = L;
@@ -342,7 +507,7 @@ void Fen2Init(){
     apps = kh_init(app_cache);
     base_path = SDL_GetBasePath();
     printf("Base path: %s\n", base_path);
-    system_app = new_app("hello-world", true);
+    system_app = new_app("system", true);
     printf("App id: %d, path: %s\n", system_app->id, system_app->root);
 }
 
@@ -372,6 +537,8 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    update_mouse_states();
+    update_key_states();
 
     int w = 0, h = 0;
 
@@ -388,7 +555,7 @@ SDL_AppResult SDL_AppIterate(void *appstate)
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
     app_set_cwd(system_app);
-    app_eval(system_app, "if app.update then app.update() end");
+    app_eval(system_app, "if app and app.update then app.update() end");
 
     SDL_RenderPresent(renderer);
 

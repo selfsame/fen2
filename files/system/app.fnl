@@ -78,8 +78,8 @@
     (each [app _ (pairs running-apps)]
       (set i (+ i 1))
       (when (= i app-idx)
-        (if (key_pressed "m")
-          (send_message app "hello child"))
+        ; (if (key_pressed "m")
+        ;   (send_message app "hello child"))
         (if (key_pressed "q")
           (handle_quit app)
           (update_process app dt) ))))

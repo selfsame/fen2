@@ -3,7 +3,10 @@
 
 (fn update [dt]
   ;(print "updating..")
-  (draw_text "hello world"  10 10 true)
+  (draw_text "hello world"  10 10)
+  (let [(x y) (mouse_pos)]
+    (draw_text (.. (math.floor x) " " (math.floor y)) 120 10))
+
   (draw_img  "default_icon32.png" 10 40)
   (draw_sprite  "default_icon32.png" 40 40 5 5 10 10)
   (set_pixel 2 2 false)
@@ -21,6 +24,5 @@
 )
 
 (print "hello-world")
-(quit)
 
 {:update update}
