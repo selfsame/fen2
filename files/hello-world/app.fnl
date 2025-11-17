@@ -9,6 +9,7 @@
 
   (draw_img  "default_icon32.png" 10 40)
   (draw_sprite  "default_icon32.png" 40 40 5 5 10 10)
+  (draw_sprite  "default_icon32.png" 80 40 5 5 10 10)
   (set_pixel 2 2 false)
   (draw_rect 10 100 60 40 false)
   (draw_rect_lines 80 100 60 40 false)

@@ -65,7 +65,6 @@
   (set _G.view_bucket {:size 600 :prop "pos"})
   (set _G.collision_bucket {:size 16 :prop "pos"})
   (entity.stores guys)
-
   (set _G.max_jumps 0)
   (set _G.jumps 0)
   (set _G.max_health 1)
@@ -74,7 +73,7 @@
   (set _G.stars 0)
   (set _G.max_stars (# (util.filter (fn [e] (= e.type :star)) guys))))
 
-(fn restart [] 
+(fn restart []
   (play_sound "audio/restart.wav" false 0.3)
   ;TODO should swap player in guys for fresh table?
   (set _G.notifications [])
@@ -102,7 +101,8 @@
   (set _G.mode :editor))
 
 (fn update [dt]
-  (local _dt (if (> dt 0.05) 0.05 dt))
+  ;(local _dt (if (> dt 0.05) 0.05 dt))
+  (local _dt dt)
   (set _G.time (+ _G.time _dt))
   (set _G.dt _dt)
   (if (key_pressed "escape") (set _G.mode :menu))
@@ -116,7 +116,7 @@
     (set _G.window window)
     (view.draw window state)
     (let [viewable (bucket.bget _G.view_bucket window.camera)]
-      
+
       (entity.controls [player])
       (entity.sprites viewable)
       (entity.gravities viewable)
@@ -126,7 +126,7 @@
       (entity.physics viewable)
       (entity.ais viewable))
     (view.draw-notifications window)
-    (view.mask-view window state) 
+    (view.mask-view window state)
 
 
     (draw_text "JUMPMINSTER" 170 12 true)
@@ -144,7 +144,7 @@
 
     (draw_text "JUMPS"  20 140 true)
     (ui.icon-bar _G.jumps _G.max_jumps 20 150 11 (v.v2 0 5))
-    
+
     (draw_text "SPACE TO JUMP"  20 300 true)
     (draw_text "ARROWS TO MOVE"  20 320 true)
     (draw_text "R TO RESET"  20 340 true)
@@ -153,7 +153,7 @@
     (draw_text "FIND JUMP BAGS"  20 420 true)
     (draw_text "FIND HEARTS"  20 440 true)
     (draw_text "FIND THE STARS"  20 460 true)
-
+    (draw_text (.. "FPS: " (math.floor (/ 1 _G.dt))) 450 12 true)
     ; camera should stay within X distance of player
     (let [cam-dist (v.dist window.camera-target player.pos)]
       (if (> cam-dist 50)
@@ -168,7 +168,7 @@
     (ui.button 220 280 200 30 "enter game" (fn [] (set _G.mode :game)))
     (ui.button 220 320 200 30 "new game" (fn [] (new-game) (set _G.mode :game)))
     (ui.button 220 360 200 30 "map editor" open-editor))
-  (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 580 12 true))
+  )
 
 
 {:update update}

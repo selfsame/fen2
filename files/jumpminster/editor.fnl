@@ -27,12 +27,12 @@
 
 
 
-(fn handle-draw [] 
+(fn handle-draw []
   (let [target (if (= layer :world) state.world
                    (= layer :background) state.background)
         (mx my) (mouse_pos)
         tloc (view.screen->tile window (v.v2 mx my))
-        sloc (view.tile->screen window tloc)]   
+        sloc (view.tile->screen window tloc)]
     (when (and (v.v_in_rect (v.v2 mx my) window.tl window.br)
                (grid.in-bounds target tloc))
       (draw_text (fennel.view tloc) 10 15 true)
@@ -42,10 +42,10 @@
       (when (mouse_down 0)
         (grid.gset target tloc -1)))))
 
-(fn entity-placer [] 
+(fn entity-placer []
   (let [(mx my) (mouse_pos)
         tloc (view.screen->tile window (v.v2 mx my))
-        sloc (view.tile->screen window tloc)]   
+        sloc (view.tile->screen window tloc)]
     (when (and (v.v_in_rect (v.v2 mx my) window.tl window.br)
                (grid.in-bounds state.world tloc))
       (draw_text (fennel.view tloc) 10 15 true)
@@ -56,8 +56,8 @@
           (set guy.pos (grid.t->p tloc))
           (table.insert state.entities guy)))
       (when (mouse_pressed 0)
-        (set state.entities 
-          (util.filter 
+        (set state.entities
+          (util.filter
             (fn [e] (not (v.v2= e.tile-pos tloc)))
             state.entities))  ))))
 
@@ -71,8 +71,8 @@
               p (v.vadd (v.vmul (v.v2 x y) 22) (v.v2 420 20))
               outline (fn [] (draw_rect_lines (- p.x 2) (- p.y 2) 22 22 1 true))]
           (draw_rect p.x p.y 18 18 true)
-          (draw_sprite (if (= layer :world) "world_sprites.png" 
-                           (= layer :background) "background_sprites.png") 
+          (draw_sprite (if (= layer :world) "world_sprites.png"
+                           (= layer :background) "background_sprites.png")
             (+ p.x 1) (+ p.y 1) sv.x sv.y 16 16)
 
           (when (= idx tile)
@@ -93,8 +93,8 @@
 
 ;run this when the entity composition changes
 (fn update-saved-entities []
-  (set state.entities 
-    (util.map 
+  (set state.entities
+    (util.map
       (fn [e]
         (let [n (entity.new e.type)]
           (set n.pos e.pos)
@@ -112,19 +112,19 @@
     (set window.camera-target (v.vadd window.camera-target pan)))
 
   (set window.camera (util.vlerp window.camera window.camera-target 0.1))
-  
+
   (view.draw window state)
   (entity.sprites state.entities)
   (view.mask-view window)
 
-  (if (= layer :entities) 
+  (if (= layer :entities)
     (do
       (entity-chooser)
       (entity-placer))
-    (do 
+    (do
       (draw-tiles)
       (handle-draw)))
- 
+
   (draw_text (.. "editing " layer " layer") 454 204 true)
   (ui.button 420 210 40 16 "world" (fn [] (set layer :world)))
   (ui.button 462 210 74 16 "background " (fn [] (set layer :background)))

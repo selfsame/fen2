@@ -1,4 +1,6 @@
 
+#include "SDL3/SDL_render.h"
+#include "SDL3/SDL_timer.h"
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -44,6 +46,9 @@ int uid(){
     CUID += 1;
     return CUID;
 }
+
+Uint64 last_timestamp = 0;
+double delta = 0;
 
 static Uint32 current_mouse = 0;
 static Uint32 previous_mouse = 0;
@@ -101,7 +106,11 @@ void app_eval(struct App *app, char *s){
     }
 }
 
-
+void app_update(struct App *app){
+    char buffer[60];
+    sprintf(buffer, "if app and app.update then app.update(%f) end", delta);
+    app_eval(app, buffer);
+}
 
 static int _quit(lua_State *L){
     current_app->queue_destroy = true;
@@ -244,8 +253,8 @@ static int _load_img(lua_State *L){
 
 static int _draw_img(lua_State *L){
     const char *img_path = lua_tostring(L, 1);
-    const int x = lua_tointeger(L, 2);
-    const int y = lua_tointeger(L, 3);
+    const double x = lua_tonumber(L, 2);
+    const double y = lua_tonumber(L, 3);
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck == kh_end(current_app->textures)) {
@@ -261,8 +270,8 @@ static int _draw_img(lua_State *L){
 
 static int _draw_sprite(lua_State *L){
     const char *img_path = lua_tostring(L, 1);
-    const int x = lua_tointeger(L, 2);
-    const int y = lua_tointeger(L, 3);
+    const double x = lua_tonumber(L, 2);
+    const double y = lua_tonumber(L, 3);
     const int sx = lua_tointeger(L, 4);
     const int sy = lua_tointeger(L, 5);
     const int sw = lua_tointeger(L, 6);
@@ -309,6 +318,7 @@ static int _key_down(lua_State *L){
 static int _key_pressed(lua_State *L){
     const char *key = lua_tostring(L, 1);
     SDL_Scancode scancode = keycode(key);
+
     if (scancode == SDL_SCANCODE_UNKNOWN) {
         lua_pushboolean(L, false);
         return 1;
@@ -387,10 +397,10 @@ static int _update_process(lua_State *L){
     if (app_key != kh_end(apps)) {
         struct App * app;
         app = kh_value(apps, app_key);
-        app_eval(app, "if app.update then app.update() end");
+        app_update(app);
         app_set_cwd(system_app);
     }
-    return 0;
+    return 1;
 }
 
 static int _close_process(lua_State *L){
@@ -515,12 +525,14 @@ void Fen2Init(){
 SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
 {
     /* Create the window */
-    if (!SDL_CreateWindowAndRenderer("Hello World!", 640, 480, SDL_WINDOW_RESIZABLE, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Fen2", 640, 480, NULL, &window, &renderer)) {
         SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
         return SDL_APP_FAILURE;
     }
+    SDL_SetRenderVSync(renderer, 1);
 
     Fen2Init();
+    last_timestamp = SDL_GetPerformanceCounter();
 
     return SDL_APP_CONTINUE;
 }
@@ -537,25 +549,33 @@ SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
 /* This function runs once per frame, and is the heart of the program. */
 SDL_AppResult SDL_AppIterate(void *appstate)
 {
+    Uint64 now = SDL_GetPerformanceCounter();
+    delta = (double)(now - last_timestamp) / SDL_GetPerformanceFrequency();
+    last_timestamp = now;
+
     update_mouse_states();
     update_key_states();
 
-    int w = 0, h = 0;
+    // int w = 0, h = 0;
 
-    const float scale = 1.0f;
+    // const float scale = 1.0f;
 
     /* Center the message and scale it up */
-    SDL_GetRenderOutputSize(renderer, &w, &h);
-    SDL_SetRenderScale(renderer, scale, scale);
+    // SDL_GetRenderOutputSize(renderer, &w, &h);
+    // SDL_SetRenderScale(renderer, scale, scale);
 
+    SDL_Rect clip_rect = {0, 0, 640, 480};
+    SDL_SetRenderClipRect(renderer, &clip_rect);
 
     /* Draw the message */
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
+
+
     app_set_cwd(system_app);
-    app_eval(system_app, "if app and app.update then app.update() end");
+    app_update(system_app);
 
     SDL_RenderPresent(renderer);
 
