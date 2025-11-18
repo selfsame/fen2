@@ -1,12 +1,16 @@
 (load_img  "default_icon32.png")
 (var dir (list_files "../"))
 
+(var timer 0)
+
 (fn update [dt]
+  (set timer (+ timer dt))
+  (draw_img  "default_icon32.png" (+ 320 (* (math.cos timer) 320)) 400)
   ;(print "updating..")
-  (draw_text "hello world"  10 10)
+  (draw_text "hello world!!"  10 10)
   (let [(x y) (mouse_pos)]
     (draw_text (.. (math.floor x) " " (math.floor y)) 120 10))
-
+  (draw_text timer 200 10 )
   (draw_img  "default_icon32.png" 10 40)
   (draw_sprite  "default_icon32.png" 40 40 5 5 10 10)
   (draw_sprite  "default_icon32.png" 80 40 5 5 10 10)

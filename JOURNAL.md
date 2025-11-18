@@ -295,4 +295,18 @@ well I implemented a simple _send_message with a String payload, but getting an 
 
 when you save a file the main app.fnl doesn't rerun, but during developing for fen2 i feel it should
 
-# 3-6-2025
+# 10-16-2025
+
+Going to start journaling again, I've been working on this branch which is using C/SDL3 and the console base.  It's going quite well!  This is my first C project and apart from some frustration with getting debug builds working I've been finding it pretty tractable and easy to tackle all the features of the rust version.
+
+Currently I have all the features of the original (minus sounds, and font loading though the original never had user fonts)
+
+Debugging an issue where performance is noticably choppy in the C version, despite reporting similar FPSs.
+
+Some other thoughts, my longer term goals were to bring in textures as something apps could request, render to, and draw.  I also wanted apps to have their own 'window' textures that could be managed by the system. So an app would default to a full screen texture, but the app could have config for a certain initial window size, and the system could ultimately decide what size to give it. (this opens up things like floating windows for apps, and tiling window managers.)
+
+Recent thoughts: I really want to have a small selection of C libs with fennel bindings, I am thinking:
+
+* box2D
+* wave function collapse
+* Clay, the C Layout library, which I think is a great baseline for any document rendering you'd want to do.

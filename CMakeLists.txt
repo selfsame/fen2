@@ -32,7 +32,10 @@ add_executable(fen2 WIN32
 target_link_libraries(fen2 PRIVATE SDL3::SDL3 lua m)
 target_include_directories(fen2 PRIVATE vendored/lua-5.4.8)
 target_include_directories(fen2 PRIVATE vendored/klib)
+target_include_directories(fen2 PRIVATE vendored/dmon)
+target_link_libraries(fen2 PRIVATE pthread)
 
 # Copy files directory to build
 file(COPY fennel.lua reloader.fnl DESTINATION ${CMAKE_BINARY_DIR})
-file(COPY files DESTINATION ${CMAKE_BINARY_DIR})
+# I symlink these for now
+# file(COPY files DESTINATION ${CMAKE_BINARY_DIR})

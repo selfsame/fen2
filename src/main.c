@@ -1,11 +1,13 @@
-
+#include "SDL3/SDL_log.h"
+#define DMON_IMPL
+#include "dmon.h"
 #include "SDL3/SDL_render.h"
 #include "SDL3/SDL_timer.h"
 #include <linux/limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <khash.h>
-#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
+//#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #ifdef _WIN32
@@ -512,85 +514,91 @@ void app_destroy(struct App *app){
     free(app);
     if (is_system) exit(0);
 }
+static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
+                           const char* filepath, const char* oldfilepath, void* user)
+{
+    printf("watch_callback - Thread: %lu, Action: %d, File: %s\n",
+           (unsigned long)pthread_self(), action, filepath);
+}
 
 void Fen2Init(){
+    printf("Main thread: %lu\n", (unsigned long)pthread_self());
+
     apps = kh_init(app_cache);
     base_path = SDL_GetBasePath();
     printf("Base path: %s\n", base_path);
+
+    dmon_init();
+    dmon_watch_id watcher;
+    watcher = dmon_watch("./files", watch_callback, DMON_WATCHFLAGS_RECURSIVE | DMON_WATCHFLAGS_FOLLOW_SYMLINKS, NULL);
+    printf("watcher id: %d\n", watcher.id);
+
     system_app = new_app("system", true);
     printf("App id: %d, path: %s\n", system_app->id, system_app->root);
 }
 
-/* This function runs once at startup. */
-SDL_AppResult SDL_AppInit(void **appstate, int argc, char *argv[])
+int main(int argc, char *argv[])
 {
+    if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
+        SDL_Log("Couldn't initialize SDL: %s", SDL_GetError());
+        return 1;
+    }
+
     /* Create the window */
     if (!SDL_CreateWindowAndRenderer("Fen2", 640, 480, NULL, &window, &renderer)) {
         SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
-        return SDL_APP_FAILURE;
+        SDL_Quit();
+        return 1;
     }
     SDL_SetRenderVSync(renderer, 1);
 
     Fen2Init();
     last_timestamp = SDL_GetPerformanceCounter();
 
-    return SDL_APP_CONTINUE;
-}
-
-/* This function runs when a new event (mouse input, keypresses, etc) occurs. */
-SDL_AppResult SDL_AppEvent(void *appstate, SDL_Event *event)
-{
-    if (event->type == SDL_EVENT_QUIT) {
-        return SDL_APP_SUCCESS;  /* end the program, reporting success to the OS. */
-    }
-    return SDL_APP_CONTINUE;
-}
-
-/* This function runs once per frame, and is the heart of the program. */
-SDL_AppResult SDL_AppIterate(void *appstate)
-{
-    Uint64 now = SDL_GetPerformanceCounter();
-    delta = (double)(now - last_timestamp) / SDL_GetPerformanceFrequency();
-    last_timestamp = now;
-
-    update_mouse_states();
-    update_key_states();
-
-    // int w = 0, h = 0;
-
-    // const float scale = 1.0f;
-
-    /* Center the message and scale it up */
-    // SDL_GetRenderOutputSize(renderer, &w, &h);
-    // SDL_SetRenderScale(renderer, scale, scale);
-
-    SDL_Rect clip_rect = {0, 0, 640, 480};
-    SDL_SetRenderClipRect(renderer, &clip_rect);
-
-    /* Draw the message */
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
-    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-
-
-
-    app_set_cwd(system_app);
-    app_update(system_app);
-
-    SDL_RenderPresent(renderer);
-
-    struct App *app;
-    kh_foreach_value(apps, app, {
-        if (app->queue_destroy == true) {
-            app_destroy(app);
+    // Main loop
+    int running = 1;
+    while (running) {
+        SDL_Event event;
+        while (SDL_PollEvent(&event)) {
+            if (event.type == SDL_EVENT_QUIT) {
+                running = 0;
+            }
         }
-    });
 
-    return SDL_APP_CONTINUE;
-}
+        // Update timing
+        Uint64 now = SDL_GetPerformanceCounter();
+        delta = (double)(now - last_timestamp) / SDL_GetPerformanceFrequency();
+        last_timestamp = now;
 
-/* This function runs once at shutdown. */
-void SDL_AppQuit(void *appstate, SDL_AppResult result)
-{
-    printf("quitting..");
+        update_mouse_states();
+        update_key_states();
+
+        SDL_Rect clip_rect = {0, 0, 640, 480};
+        SDL_SetRenderClipRect(renderer, &clip_rect);
+
+        /* Draw the message */
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+        app_set_cwd(system_app);
+        app_update(system_app);
+
+        SDL_RenderPresent(renderer);
+
+        struct App *app;
+        kh_foreach_value(apps, app, {
+            if (app->queue_destroy == true) {
+                app_destroy(app);
+            }
+        });
+    }
+
+    dmon_deinit();
+
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
 }
