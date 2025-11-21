@@ -23,9 +23,10 @@
   (let [stripped (string.gsub (string.gsub (string.gsub (string.gsub path "^/" "") "^\\" "") ".fnl$" "") ".lua$" "")
         dotted (string.gsub (string.gsub stripped "\\" ".") "/" ".")
         slashed (string.gsub stripped "\\" "/")]
+      ;(each [k v (pairs package.loaded)] (print "  " k))
     (if (. package.loaded dotted)
         (reload dotted))
-    (if (and (not (= dotted slashed)) 
+    (if (and (not (= dotted slashed))
              (. package.loaded slashed))
         (reload slashed))))
 

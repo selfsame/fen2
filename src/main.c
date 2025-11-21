@@ -514,15 +514,62 @@ void app_destroy(struct App *app){
     free(app);
     if (is_system) exit(0);
 }
+
+bool starts_with(const char *a, const char *b){
+    if(strncmp(a, b, strlen(b)) == 0) return 1;
+    return 0;
+}
+
+bool ends_with(const char *str, const char *suffix)
+{
+    if (!str || !suffix)
+        return 0;
+    size_t lenstr = strlen(str);
+    size_t lensuffix = strlen(suffix);
+    if (lensuffix >  lenstr)
+        return 0;
+    return strncmp(str + lenstr - lensuffix, suffix, lensuffix) == 0;
+}
+
+typedef struct {
+    struct App *app;
+    char code[PATH_MAX * 2];
+} ReloadTask;
+
+static ReloadTask reload_queue[100];
+static int reload_queue_count = 0;
+
 static void watch_callback(dmon_watch_id watch_id, dmon_action action, const char* rootdir,
                            const char* filepath, const char* oldfilepath, void* user)
 {
-    printf("watch_callback - Thread: %lu, Action: %d, File: %s\n",
-           (unsigned long)pthread_self(), action, filepath);
+    if (action != 1 && action != 3) return;
+
+    char full_filepath[PATH_MAX];
+    snprintf(full_filepath, sizeof(full_filepath), "%sfiles%c%s", base_path, PATH_SEP, filepath);
+
+    struct App *app;
+    kh_foreach_value(apps, app, {
+        if (starts_with(full_filepath, app->root)) {
+            if (ends_with(full_filepath, ".fnl") || ends_with(full_filepath, ".lua")) {
+                char buffer[PATH_MAX];
+
+                const char *relative_path = full_filepath + strlen(app->root);
+                if (*relative_path == PATH_SEP) relative_path++;
+
+                sprintf(buffer, "reloader.reload_path(\"%s\"); app = require(\"app\")", relative_path);
+                /* have to eval lua code on the main thread (i think) */
+                if (reload_queue_count < 10) {
+                    reload_queue[reload_queue_count].app = app;
+                    strcpy(reload_queue[reload_queue_count].code, buffer);
+                    reload_queue_count++;
+                }
+            }
+        }
+    });
+
 }
 
 void Fen2Init(){
-    printf("Main thread: %lu\n", (unsigned long)pthread_self());
 
     apps = kh_init(app_cache);
     base_path = SDL_GetBasePath();
@@ -580,6 +627,12 @@ int main(int argc, char *argv[])
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+        /* eval any file reloads from the watcher thread */
+        for (int i = 0; i < reload_queue_count; i++) {
+            app_eval(reload_queue[i].app, reload_queue[i].code);
+        }
+        reload_queue_count = 0;
 
         app_set_cwd(system_app);
         app_update(system_app);

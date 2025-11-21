@@ -1,13 +1,19 @@
+(var foo (require "foo"))
+
 (load_img  "default_icon32.png")
+
+(print "hello-world loaded")
+
 (var dir (list_files "../"))
 
 (var timer 0)
 
 (fn update [dt]
   (set timer (+ timer dt))
-  (draw_img  "default_icon32.png" (+ 320 (* (math.cos timer) 320)) 400)
+  (draw_img  "default_icon32.png" (+ 320 (* (math.cos (* timer 2)) 320)) 400)
   ;(print "updating..")
-  (draw_text "hello world!!"  10 10)
+  (draw_text "hello world"  10 10)
+  (draw_text foo.text  10 30)
   (let [(x y) (mouse_pos)]
     (draw_text (.. (math.floor x) " " (math.floor y)) 120 10))
   (draw_text timer 200 10 )
@@ -27,7 +33,5 @@
     (draw_text k 10 y true)
     (set y (+ y 12)))
 )
-
-(print "hello-world")
 
 {:update update}
