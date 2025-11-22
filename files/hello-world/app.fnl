@@ -9,6 +9,7 @@
 (var timer 0)
 
 (fn update [dt]
+  (clear_screen true)
   (set timer (+ timer dt))
   (draw_img  "default_icon32.png" (+ 320 (* (math.cos (* timer 2)) 320)) 400)
   ;(print "updating..")
