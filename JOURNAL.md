@@ -317,3 +317,11 @@ Recent thoughts: I really want to have a small selection of C libs with fennel b
 I'm on a branch using lua 5.2.4, same as the rust version, which does get better performance in jumpminster but still noticably degraded.  Timing the updates reveals 6ms with regular jumps to 30-50ms like every 11 frames.
 
 Same thing even in the map editor, which doesn't have any of the physics or entities updating, which is a clue that maybe this is related to the high amount of draw calls?
+
+A performance test where I draw a sprite 1200 times a frame doesn't have any hiccups (and is ~1.4ms)
+
+Aha ok! manually triggering GC removes those spikes completely
+
+`lua_gc(app->lua, LUA_GCCOLLECT, NULL);`
+
+Looks like I'm sticking with lua-5.2.4 as lua 5.4 has less than half the framerate. Anyway that's great and I can probably acheive parity with the rust version in a few days, then move on to organization and planning the ambitious new stuff like window render textures.
