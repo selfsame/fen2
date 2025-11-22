@@ -1,3 +1,4 @@
+#include <time.h>
 #include "SDL3/SDL_log.h"
 #define DMON_IMPL
 #include "dmon.h"
@@ -106,6 +107,7 @@ void app_eval(struct App *app, char *s){
         // Handle loading error
         printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
     }
+    lua_gc(app->lua, LUA_GCCOLLECT, NULL);
 }
 
 void app_update(struct App *app){
@@ -634,8 +636,14 @@ int main(int argc, char *argv[])
         }
         reload_queue_count = 0;
 
+        struct timespec start, end;
+        clock_gettime(CLOCK_MONOTONIC, &start);
         app_set_cwd(system_app);
         app_update(system_app);
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        double millis = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
+        printf("Time: %.3f milliseconds\n", millis);
+
 
         SDL_RenderPresent(renderer);
 
