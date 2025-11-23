@@ -325,3 +325,25 @@ Aha ok! manually triggering GC removes those spikes completely
 `lua_gc(app->lua, LUA_GCCOLLECT, NULL);`
 
 Looks like I'm sticking with lua-5.2.4 as lua 5.4 has less than half the framerate. Anyway that's great and I can probably acheive parity with the rust version in a few days, then move on to organization and planning the ambitious new stuff like window render textures.
+
+# 10-22-2025
+
+Ok wild evening: I switched to LuaJIT which is wildly faster, jumpminster runs at 230+ FPS compared to 70 FPS for lua 5.2.4.
+
+There's also FFI (foreign function interface) which means you can call any linked so/dll functions, or even load arbitrary libs
+
+```
+(local ffi (require "ffi"))
+(local C ffi.C)
+
+(ffi.cdef "
+  int printf(const char *fmt, ...);
+  ")
+
+(C.printf "Hello from C!\n")
+(print (ffi.load "z"))
+```
+
+Now this is a nightmare for sandboxing but I think I could have a file that sets up permitted cdefs then remove ffi from the require tables.
+
+And then most excitedly, the libraries I was planning on binding will be trivial to include and set up, to the point that I will not even have to write C code, just ffi.cdef the relevant parts of the headers

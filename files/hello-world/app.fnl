@@ -8,6 +8,17 @@
 
 (var timer 0)
 
+(local ffi (require "ffi"))
+(local C ffi.C)
+
+(ffi.cdef "
+  int printf(const char *fmt, ...);
+  ")
+
+(C.printf "Hello from C!\n")
+(print (ffi.load "cairo"))
+(print (ffi.load "m"))
+
 (fn update [dt]
   (clear_screen true)
   (set timer (+ timer dt))

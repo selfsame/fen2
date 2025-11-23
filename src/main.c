@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <lua.h>
 #include <lualib.h>
+//#include "luajit.h"
 #include <lauxlib.h>
 #include "keys.h"
 
@@ -642,7 +643,7 @@ int main(int argc, char *argv[])
         app_update(system_app);
         clock_gettime(CLOCK_MONOTONIC, &end);
         double millis = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
-        printf("Time: %.3f milliseconds\n", millis);
+        // printf("Time: %.3f milliseconds\n", millis);
 
 
 
