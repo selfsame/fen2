@@ -1,12 +1,12 @@
 (fn reload [module-name]
-    (let [old (require module-name)
+    (let [[ok old] [(pcall require module-name)]
         _ (tset package.loaded module-name nil)
         new (require module-name)]
         ;; if the module isnt a table then we can't make
         ;; changes which affect already-loaded code, but if
         ;; it is then we should splice new values into the
         ;; existing table and remove values that are gone.
-        (when (= (type new) :table)
+        (when (and (= (type old) :table) (= (type new) :table))
             (each [k v (pairs new)]
                 (tset old k v))
             (each [k (pairs old)]

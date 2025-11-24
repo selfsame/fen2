@@ -559,7 +559,8 @@ static void watch_callback(dmon_watch_id watch_id, dmon_action action, const cha
                 const char *relative_path = full_filepath + strlen(app->root);
                 if (*relative_path == PATH_SEP) relative_path++;
 
-                sprintf(buffer, "reloader.reload_path(\"%s\"); app = require(\"app\")", relative_path);
+                /* There is likely an issue with reloading where transitive deps aren't getting the new values */
+                sprintf(buffer, "reloader.reload_path('%s'); app = require('app')", relative_path);
                 /* have to eval lua code on the main thread (i think) */
                 if (reload_queue_count < 10) {
                     reload_queue[reload_queue_count].app = app;

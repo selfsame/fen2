@@ -8,16 +8,20 @@
 
 (var timer 0)
 
+
 (local ffi (require "ffi"))
 (local C ffi.C)
 
 (ffi.cdef "
   int printf(const char *fmt, ...);
+  void __set_pixel(int x, int y, int c);
   ")
 
 (C.printf "Hello from C!\n")
 (print (ffi.load "cairo"))
 (print (ffi.load "m"))
+;(print C.__set_pixel)
+
 
 (fn update [dt]
   (clear_screen true)
@@ -25,7 +29,7 @@
   (draw_img  "default_icon32.png" (+ 320 (* (math.cos (* timer 2)) 320)) 400)
   ;(print "updating..")
   (draw_text "hello world"  10 10)
-  (draw_text foo.text  10 30)
+  (draw_text (.. foo.text (foo.frog 2))  10 30)
   (let [(x y) (mouse_pos)]
     (draw_text (.. (math.floor x) " " (math.floor y)) 120 10))
   (draw_text timer 200 10 )
