@@ -1,6 +1,7 @@
 (var foo (require "foo"))
 
 (load_img  "default_icon32.png")
+(load_img  "window.png")
 
 (print "hello-world loaded")
 
@@ -37,8 +38,8 @@
   (draw_sprite  "default_icon32.png" 40 40 5 5 10 10)
   (draw_sprite  "default_icon32.png" 80 40 5 5 10 10)
   (set_pixel 2 2 false)
-  (draw_rect 10 100 60 40 false)
-  (draw_rect_lines 80 100 60 40 false)
+  (draw_rect 200 100 60 40 false)
+  (draw_rect_lines 280 100 60 40 false)
   (for [x 1 400]
     (for [y 1 100]
       (if (= 1 (math.fmod (math.fmod x y) 11))
@@ -48,6 +49,8 @@
   (each [k v (pairs dir)]
     (draw_text k 10 y true)
     (set y (+ y 12)))
-)
+
+  (draw_9patch "window.png" 3 3 11 3 10 100 100 50)
+  (draw_9patch "window.png" 3 3 11 3 50 120 80 60))
 
 {:update update}

@@ -263,7 +263,6 @@ static int _draw_img(lua_State *L){
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck == kh_end(current_app->textures)) {
-        // Already cached, return existing texture
         printf("Unable to draw_img, no image loaded for: %s", img_path);
         return 0;
     }
@@ -284,8 +283,7 @@ static int _draw_sprite(lua_State *L){
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck == kh_end(current_app->textures)) {
-        // Already cached, return existing texture
-        printf("Unable to draw_img, no image loaded for: %s", img_path);
+        printf("Unable to draw_sprite, no image loaded for: %s", img_path);
         return 0;
     }
     SDL_Texture *texture = kh_value(current_app->textures, ck);
@@ -293,6 +291,28 @@ static int _draw_sprite(lua_State *L){
     SDL_FRect dest = {x, y, sw, sh};
     SDL_RenderTexture(renderer, texture, &srce, &dest);
 return 0;
+}
+
+static int _draw_9patch(lua_State *L){
+    const char *img_path = lua_tostring(L, 1);
+    const int left_width = lua_tonumber(L, 2);
+    const int right_width = lua_tonumber(L, 3);
+    const int top_height = lua_tonumber(L, 4);
+    const int bottom_height = lua_tonumber(L, 5);
+    const double x = lua_tonumber(L, 6);
+    const double y = lua_tonumber(L, 7);
+    const double w = lua_tonumber(L, 8);
+    const double h = lua_tonumber(L, 9);
+    // check app.textures cache
+    khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
+    if (ck == kh_end(current_app->textures)) {
+        printf("Unable to draw_9patch, no image loaded for: %s", img_path);
+        return 0;
+    }
+    SDL_Texture *texture = kh_value(current_app->textures, ck);
+    SDL_FRect dest = {x, y, w, h};
+    SDL_RenderTexture9Grid(renderer, texture, NULL, left_width, right_width, top_height, bottom_height, 0.0, &dest);
+    return 0;
 }
 
 static int _draw_text(lua_State *L){
@@ -435,6 +455,7 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "load_img", _load_img);
     lua_register(L, "draw_img", _draw_img);
     lua_register(L, "draw_sprite", _draw_sprite);
+    lua_register(L, "draw_9patch", _draw_9patch);
     lua_register(L, "draw_text", _draw_text);
     lua_register(L, "set_pixel", _set_pixel);
     lua_register(L, "draw_rect", _draw_rect);
