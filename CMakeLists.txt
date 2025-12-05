@@ -1,8 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 project(fen2)
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address -fno-omit-frame-pointer -O1")
-
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # set the output directory for built objects.
@@ -25,12 +23,17 @@ add_executable(fen2 WIN32
     src/keys.c
 )
 
+
+
 # Link to SDL3 and Lua, etc..
 target_link_libraries(fen2 PRIVATE SDL3::SDL3 lua m)
 target_include_directories(fen2 PRIVATE vendored/luajit/src)
 target_include_directories(fen2 PRIVATE vendored/klib)
 target_include_directories(fen2 PRIVATE vendored/dmon)
+target_include_directories(fen2 PRIVATE vendored/stb)
 target_link_libraries(fen2 PRIVATE pthread)
+target_compile_options(fen2 PRIVATE -g -fsanitize=address -fno-omit-frame-pointer -O1)
+target_link_libraries(fen2 PRIVATE -fsanitize=address)
 
 # Copy files directory to build
-file(COPY fennel.lua reloader.fnl DESTINATION ${CMAKE_BINARY_DIR})
+file(COPY fennel.lua reloader.fnl HelvetiPixel.ttf DESTINATION ${CMAKE_BINARY_DIR})

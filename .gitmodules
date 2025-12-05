@@ -1,3 +1,9 @@
 [submodule "vendored/luajit"]
 	path = vendored/luajit
 	url = https://luajit.org/git/luajit.git
+[submodule "vendored/SDL_ttf"]
+	path = vendored/SDL_ttf
+	url = https://github.com/libsdl-org/SDL_ttf
+[submodule "vendored/sdl-stb-font"]
+	path = vendored/sdl-stb-font
+	url = https://github.com/SnapperTT/sdl-stb-font

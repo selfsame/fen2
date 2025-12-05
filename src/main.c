@@ -1,5 +1,6 @@
 #include <time.h>
 #include "SDL3/SDL_log.h"
+#include "SDL3/SDL_pixels.h"
 #define DMON_IMPL
 #include "dmon.h"
 #include "SDL3/SDL_render.h"
@@ -8,9 +9,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <khash.h>
-//#define SDL_MAIN_USE_CALLBACKS 1  /* use the callbacks instead of main() */
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
+#define STB_TRUETYPE_IMPLEMENTATION
+#include <stb_truetype.h>
 #ifdef _WIN32
     #include <direct.h>
     #define chdir _chdir
@@ -36,6 +38,8 @@ static SDL_Window *window = NULL;
 static SDL_Renderer *renderer = NULL;
 
 static kh_app_cache_t *apps = NULL;
+
+
 
 static struct App *system_app = NULL;
 
@@ -86,6 +90,77 @@ static void set_bw_color(bool c){
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     } else {
         SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    }
+}
+
+/* Font Stuff */
+
+typedef struct {
+    float font_size;
+    SDL_Texture* texture;
+    stbtt_bakedchar chars[700];
+} Font;
+
+static Font *default_font = NULL;
+
+Font* load_font(const char* path, float font_size){
+    size_t ttf_size;
+    unsigned char* ttf_buffer = (unsigned char*)SDL_LoadFile(path, &ttf_size);
+    if (!ttf_buffer) {
+    SDL_Log("Failed to load font %s: %s", path, SDL_GetError());
+        SDL_free(ttf_buffer);
+        return NULL;
+    }
+
+    Font* font = malloc(sizeof(Font));
+
+    int atlas_w = 512;
+    int atlas_h = 512;
+    /* think here i have to use stb lib to find the range of glyphs, it will crash if out of range */
+    int code_range = 700;
+    unsigned char atlas[atlas_w*atlas_h];
+    int result = stbtt_BakeFontBitmap(ttf_buffer, 0, font_size,
+        atlas, atlas_w, atlas_h, 0, code_range, font->chars);
+
+    /* unfortunately there's no SDL 8 bit texture format?  */
+    unsigned char* rgba_atlas = malloc(atlas_w * atlas_h * 4);
+    for (int i = 0; i < atlas_w * atlas_h; i++) {
+        rgba_atlas[i*4 + 0] = atlas[i]; // A
+        rgba_atlas[i*4 + 1] = 0;      // R
+        rgba_atlas[i*4 + 2] = 0;        // G
+        rgba_atlas[i*4 + 3] = 0;        // B
+    }
+
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB32,
+                                                 SDL_TEXTUREACCESS_STATIC,
+                                                 atlas_w, atlas_h);
+    SDL_UpdateTexture(texture, NULL, rgba_atlas, atlas_w * 4);
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+
+    SDL_free(ttf_buffer);
+
+
+    font->texture = texture;
+    font->font_size = font_size;
+    return font;
+}
+
+/* stbtt_bakedchar has the sub rect of the glyph along with xadvance which
+ * i think is just the width. I can do a simple text render from that with no
+ * kerning. Also noting I may want to use stbtt_GetBakedQuad which looks to have
+ */
+void draw_font_text(Font *font, float x, float y, char* text){
+    SDL_FRect src, dest;
+    for (const char* p = text; *p; p++) {
+        char c = *p;
+        if (c < 0 || c > 700) continue; // ok goof, unsigned chars are 0-255
+        stbtt_bakedchar* bc = &font->chars[c];
+        float w = bc->x1-bc->x0;
+        float h = bc->y1-bc->y0;
+        src = (SDL_FRect){bc->x0, bc->y0, w, h};
+        dest = (SDL_FRect){x, y-h, w, h};
+        SDL_RenderTexture(renderer, font->texture, &src, &dest);
+        x += bc->xadvance;
     }
 }
 
@@ -311,7 +386,7 @@ static int _draw_9patch(lua_State *L){
     }
     SDL_Texture *texture = kh_value(current_app->textures, ck);
     SDL_FRect dest = {x, y, w, h};
-    SDL_RenderTexture9Grid(renderer, texture, NULL, left_width, right_width, top_height, bottom_height, 0.0, &dest);
+    SDL_RenderTexture9GridTiled(renderer, texture, NULL, left_width, right_width, top_height, bottom_height, 0.0, &dest, 1.0);
     return 0;
 }
 
@@ -595,6 +670,7 @@ static void watch_callback(dmon_watch_id watch_id, dmon_action action, const cha
 }
 
 void Fen2Init(){
+    default_font = load_font("HelvetiPixel.ttf", 12);
 
     apps = kh_init(app_cache);
     base_path = SDL_GetBasePath();
@@ -667,7 +743,10 @@ int main(int argc, char *argv[])
         double millis = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
         // printf("Time: %.3f milliseconds\n", millis);
 
+        draw_font_text(default_font, 40, 40, "Hello World?");
 
+        SDL_FRect dest = {20,50,512, 512};
+        SDL_RenderTexture(renderer, default_font->texture, NULL, &dest);
 
         SDL_RenderPresent(renderer);
 

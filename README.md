@@ -40,9 +40,13 @@
 
 ```fnl
 (clear_screen true)
+
 (load_img "img/foo.png")
 (draw_img x y "img/foo.png")
 (draw_sprite x y sx sy w h "img/foo.png")
+(draw_9patch "window.png" left right top bottom x y w h)
+
+(load_font "consola.ttf")
 (draw_text "HELLO" x y true)
 
 (draw_rect x y w h false)
