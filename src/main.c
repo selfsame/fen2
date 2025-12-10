@@ -29,7 +29,11 @@
 #include <lauxlib.h>
 #include "keys.h"
 
+#define APP_BASE_WIDTH 640
+#define APP_BASE_HEIGHT 480
+
 KHASH_MAP_INIT_STR(texture_cache, SDL_Texture*)
+KHASH_MAP_INIT_INT(rendertexture_cache, SDL_Texture*)
 KHASH_MAP_INIT_INT(app_cache, struct App*)
 
 const char *base_path = NULL;
@@ -82,6 +86,8 @@ struct App {
     lua_State *lua;
     bool is_system;
     khash_t(texture_cache) *textures;
+    int rt_id;
+    khash_t(rendertexture_cache) *rendertextures;
     bool queue_destroy;
 };
 
@@ -165,6 +171,30 @@ void draw_font_text(Font *font, float x, float y, char* text){
     }
 }
 
+int app_create_rendertexture(struct App *app, int w, int h){
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB32, SDL_TEXTUREACCESS_TARGET, w, h);
+    int ret;
+    khint_t k = kh_put(rendertexture_cache, app->rendertextures, app->rt_id, &ret);
+    kh_value(app->rendertextures, k) = texture;
+    app->rt_id += 1;
+    return app->rt_id - 1;
+}
+
+SDL_Texture* app_get_rendertexture(struct App *app, int k){
+    khint_t ck = kh_get(rendertexture_cache, app->rendertextures, k);
+    if (ck != kh_end(app->rendertextures)) {
+        return kh_value(app->rendertextures, ck);
+    } else {
+        return NULL;
+    }
+}
+
+bool app_set_rendertexture(struct App *app, int k){
+    SDL_Texture *texture = app_get_rendertexture(app, k);
+    if (texture == NULL) return 0;
+    SDL_SetRenderTarget(renderer, texture);
+    return 1;
+}
 
 void app_set_cwd(struct App *app){
     if (chdir(app->root) != 0) {
@@ -188,9 +218,11 @@ void app_eval(struct App *app, char *s){
 }
 
 void app_update(struct App *app){
+    if (app != system_app) app_set_rendertexture(app, 0);
     char buffer[60];
     sprintf(buffer, "if app and app.update then app.update(%f) end", delta);
     app_eval(app, buffer);
+    SDL_SetRenderTarget(renderer, NULL);
 }
 
 #include "api.c"
@@ -212,6 +244,7 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "draw_img", _draw_img);
     lua_register(L, "draw_sprite", _draw_sprite);
     lua_register(L, "draw_9patch", _draw_9patch);
+    lua_register(L, "draw_rendertexture", _draw_rendertexture);
     lua_register(L, "draw_text", _draw_text);
     lua_register(L, "set_pixel", _set_pixel);
     lua_register(L, "draw_rect", _draw_rect);
@@ -233,6 +266,7 @@ struct App * new_app(char path[], bool is_system){
         lua_register(L, "launch_process", _launch_process);
         lua_register(L, "update_process", _update_process);
         lua_register(L, "close_process", _close_process);
+        lua_register(L, "draw_app_rendertexture", _draw_app_rendertexture);
     }
 
 
@@ -240,6 +274,8 @@ struct App * new_app(char path[], bool is_system){
     app->lua = L;
     app->is_system = is_system;
     app->textures = kh_init(texture_cache);
+    app->rt_id = 0;
+    app->rendertextures = kh_init(rendertexture_cache);
     app->queue_destroy = false;
 
     char app_path[PATH_MAX];
@@ -247,6 +283,8 @@ struct App * new_app(char path[], bool is_system){
 
     strncpy(app->root, app_path, PATH_MAX - 1);
     printf("app.root: %s\n", app->root);
+
+    app_create_rendertexture(app, APP_BASE_WIDTH, APP_BASE_HEIGHT);
 
     /* register app in the apps cache by id */
     int ret;
@@ -286,6 +324,13 @@ void app_destroy(struct App *app){
         }
     }
     kh_destroy(texture_cache, app->textures);
+    for (k = kh_begin(app->rendertextures); k != kh_end(app->rendertextures); ++k) {
+        if (kh_exist(app->rendertextures, k)) {
+            SDL_Texture *texture = kh_val(app->rendertextures, k);
+            SDL_DestroyTexture(texture);
+        }
+    }
+    kh_destroy(texture_cache, app->rendertextures);
     if (app->lua) lua_close(app->lua);
     khint_t app_key = kh_get(app_cache, apps, app->id);
     if (app_key != kh_end(apps)) {
@@ -375,7 +420,7 @@ int main(int argc, char *argv[])
     }
 
     /* Create the window */
-    if (!SDL_CreateWindowAndRenderer("Fen2", 640, 480, NULL, &window, &renderer)) {
+    if (!SDL_CreateWindowAndRenderer("Fen2", APP_BASE_WIDTH, APP_BASE_HEIGHT, NULL, &window, &renderer)) {
         SDL_Log("Couldn't create window and renderer: %s", SDL_GetError());
         SDL_Quit();
         return 1;
@@ -421,6 +466,10 @@ int main(int argc, char *argv[])
         clock_gettime(CLOCK_MONOTONIC, &start);
         app_set_cwd(system_app);
         app_update(system_app);
+        SDL_Texture* system_texture = app_get_rendertexture(system_app, 0);
+        SDL_FRect dest = {0, 0, APP_BASE_WIDTH, APP_BASE_HEIGHT};
+        SDL_RenderTexture(renderer, system_texture, NULL, &dest);
+
         clock_gettime(CLOCK_MONOTONIC, &end);
         double millis = (end.tv_sec - start.tv_sec) * 1000.0 + (end.tv_nsec - start.tv_nsec) / 1000000.0;
         // printf("Time: %.3f milliseconds\n", millis);

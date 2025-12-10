@@ -82,7 +82,8 @@
         ;   (send_message app "hello child"))
         (if (key_pressed "q")
           (handle_quit app)
-          (update_process app dt) )))
+          (do (update_process app dt)
+              (draw_app_rendertexture app 0 0 0) ))))
 
     (draw_rect 555 5 630 15 false)
     ;(draw_text (.. "FPS: " (math.floor (/ 1 dt))) 560 10 true)

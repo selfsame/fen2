@@ -1,4 +1,5 @@
 
+#include <lua.h>
 static int _quit(lua_State *L){
     current_app->queue_destroy = true;
 }
@@ -197,6 +198,17 @@ static int _draw_9patch(lua_State *L){
     return 0;
 }
 
+static int _draw_rendertexture(lua_State *L){
+    const int *img_key = lua_tointeger(L, 1);
+    const double x = lua_tonumber(L, 2);
+    const double y = lua_tonumber(L, 3);
+    SDL_Texture *texture = app_get_rendertexture(current_app, img_key);
+    if (texture == NULL) return 0;
+    SDL_FRect dest = {x, y, texture->w, texture->h};
+    SDL_RenderTexture(renderer, texture, NULL, &dest);
+    return 0;
+}
+
 static int _draw_text(lua_State *L){
     const char *message = lua_tostring(L, 1);
     const int x = lua_tointeger(L, 2);
@@ -300,12 +312,19 @@ static int _launch_process(lua_State *L){
     return 1;
 }
 
-static int _update_process(lua_State *L){
-    const int id = lua_tointeger(L, 1);
+struct App* get_app(int id){
     khint_t app_key = kh_get(app_cache, apps, id);
     if (app_key != kh_end(apps)) {
-        struct App * app;
-        app = kh_value(apps, app_key);
+        return kh_value(apps, app_key);
+    } else {
+        return NULL;
+    }
+}
+
+static int _update_process(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    struct App * app = get_app(id);
+    if (app != NULL) {
         app_update(app);
         app_set_cwd(system_app);
     }
@@ -314,11 +333,25 @@ static int _update_process(lua_State *L){
 
 static int _close_process(lua_State *L){
     const int id = lua_tointeger(L, 1);
-    khint_t app_key = kh_get(app_cache, apps, id);
-    if (app_key != kh_end(apps)) {
-        struct App * app;
-        app = kh_value(apps, app_key);
+    struct App * app = get_app(id);
+    if (app != NULL) {
         app->queue_destroy = true;
+    }
+    return 0;
+}
+
+// TODO I probably want to return booleans from these rendertextures regarding the existance of the texture
+
+static int _draw_app_rendertexture(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    const int *img_key = lua_tointeger(L, 2);
+    const double x = lua_tonumber(L, 3);
+    const double y = lua_tonumber(L, 4);
+    struct App * app = get_app(id);
+    SDL_Texture *texture = app_get_rendertexture(current_app, img_key);
+    if (app != NULL && texture != NULL) {
+        SDL_FRect dest = {x, y, texture->w, texture->h};
+        SDL_RenderTexture(renderer, texture, NULL, &dest);
     }
     return 0;
 }
