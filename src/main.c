@@ -189,6 +189,14 @@ SDL_Texture* app_get_rendertexture(struct App *app, int k){
     }
 }
 
+bool app_destroy_rendertexture(struct App *app, int k){
+    SDL_Texture *texture = app_get_rendertexture(app, k);
+    if (texture == NULL) return 0;
+    SDL_DestroyTexture(texture);
+    kh_del(rendertexture_cache, app->rendertextures, k);
+    return 1;
+}
+
 bool app_set_rendertexture(struct App *app, int k){
     SDL_Texture *texture = app_get_rendertexture(app, k);
     if (texture == NULL) return 0;
@@ -238,12 +246,16 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "quit", _quit);
     lua_register(L, "list_files", _list_files);
     lua_register(L, "clear_screen", _clear_screen);
+    lua_register(L, "clip_rect", _clip_rect);
     lua_register(L, "load_sound", _load_sound);
     lua_register(L, "play_sound", _play_sound);
     lua_register(L, "load_img", _load_img);
     lua_register(L, "draw_img", _draw_img);
     lua_register(L, "draw_sprite", _draw_sprite);
     lua_register(L, "draw_9patch", _draw_9patch);
+    lua_register(L, "create_rendertexture", _create_rendertexture);
+    lua_register(L, "destroy_rendertexture", _destroy_rendertexture);
+    lua_register(L, "target_rendertexture", _target_rendertexture);
     lua_register(L, "draw_rendertexture", _draw_rendertexture);
     lua_register(L, "draw_text", _draw_text);
     lua_register(L, "set_pixel", _set_pixel);
@@ -448,9 +460,8 @@ int main(int argc, char *argv[])
         update_mouse_states();
         update_key_states();
 
-        SDL_Rect clip_rect = {0, 0, 640, 480};
+        SDL_Rect clip_rect = {0, 0, APP_BASE_WIDTH, APP_BASE_HEIGHT};
         SDL_SetRenderClipRect(renderer, &clip_rect);
-
         /* Draw the message */
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         // SDL_RenderClear(renderer);

@@ -45,6 +45,9 @@
 (draw_img x y "img/foo.png")
 (draw_sprite x y sx sy w h "img/foo.png")
 (draw_9patch "window.png" left right top bottom x y w h)
+(create_rendertexture w h) -> id
+(destroy_rendertexture id)
+(draw_rendertexture id x y)
 
 (load_font "consola.ttf")
 (draw_text "HELLO" x y true)

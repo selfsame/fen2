@@ -9,6 +9,9 @@
 
 (var timer 0)
 
+(var rtex (create_rendertexture 512 512))
+
+(print "render texture created:" rtex)
 
 (local ffi (require "ffi"))
 (local C ffi.C)
@@ -24,7 +27,12 @@
 ;(print C.__set_pixel)
 
 
+
+
 (fn update [dt]
+  (clear_screen true)
+
+  (target_rendertexture rtex)
   (clear_screen true)
   (set timer (+ timer dt))
   (draw_img  "default_icon32.png" (+ 320 (* (math.cos (* timer 2)) 320)) 400)
@@ -38,6 +46,8 @@
   (draw_sprite  "default_icon32.png" 40 40 5 5 10 10)
   (draw_sprite  "default_icon32.png" 80 40 5 5 10 10)
   (set_pixel 2 2 false)
+  (target_rendertexture 0)
+
   (draw_rect 200 100 60 40 false)
   (draw_rect_lines 280 100 60 40 false)
   (for [x 1 400]
@@ -50,7 +60,16 @@
     (draw_text k 10 y true)
     (set y (+ y 12)))
 
-  (draw_9patch "window.png" 3 3 11 3 10 100 100 50)
-  (draw_9patch "window.png" 3 3 11 3 50 120 80 60))
+
+  (fn draw-window [x y w h f]
+    (draw_9patch "window.png" 3 3 11 3 x y w h)
+    (clip_rect (+ x 3) (+ y 11) (- w 6) (- h 14))
+    (f)
+    (clip_rect))
+
+  (draw-window 10 10 300 100
+    (fn [] (draw_rendertexture rtex 13 21)))
+  (draw-window 120 60 300 100
+    (fn [] (draw_rendertexture rtex 123 71))) )
 
 {:update update}

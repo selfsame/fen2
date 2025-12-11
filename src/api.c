@@ -48,6 +48,22 @@ static int _clear_screen(lua_State *L){
     return 0;
 }
 
+static int _clip_rect(lua_State *L){
+    int isnumx, isnumy, isnumw, isnumh;
+    const int x = lua_tointegerx(L, 1, &isnumx);
+    const int y = lua_tointegerx(L, 2, &isnumy);
+    const int w = lua_tointegerx(L, 3, &isnumw);
+    const int h = lua_tointegerx(L, 4, &isnumh);
+    if (isnumx && isnumy && isnumw && isnumh) {
+        SDL_Rect clip_rect = {x, y, w, h};
+        SDL_SetRenderClipRect(renderer, &clip_rect);
+    } else {
+        SDL_Rect clip_rect = {0, 0, APP_BASE_WIDTH, APP_BASE_HEIGHT};
+        SDL_SetRenderClipRect(renderer, &clip_rect);
+    }
+    return 0;
+}
+
 static int _load_sound(lua_State *L){
     const char *path = lua_tostring(L, 1);
     return 0;
@@ -196,6 +212,28 @@ static int _draw_9patch(lua_State *L){
     SDL_FRect dest = {x, y, w, h};
     SDL_RenderTexture9GridTiled(renderer, texture, NULL, left_width, right_width, top_height, bottom_height, 0.0, &dest, 1.0);
     return 0;
+}
+
+static int _create_rendertexture(lua_State *L){
+    const int w = lua_tointeger(L, 1);
+    const int h = lua_tointeger(L, 2);
+    int id = app_create_rendertexture(current_app, w, h);
+    lua_pushinteger(L, id);
+    return 1;
+}
+
+static int _destroy_rendertexture(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    bool result = app_destroy_rendertexture(current_app, id);
+    lua_pushboolean(L, id);
+    return 1;
+}
+
+static int _target_rendertexture(lua_State *L){
+    const int id = lua_tointeger(L, 1);
+    bool result = app_set_rendertexture(current_app, id);
+    lua_pushboolean(L, id);
+    return 1;
 }
 
 static int _draw_rendertexture(lua_State *L){
