@@ -35,7 +35,7 @@
   (each [y row (pairs m.grid)]
     (each [x val (pairs row)]
       (match val
-        1 (draw_sprite "sprites.png"
+        1 (draw_img "sprites.png"
             (* x 16) (* y 16) 0 0 16 16))
       )))
 

@@ -20,13 +20,13 @@
    :camera-target (v.v2 0 0)}))
 
 (fn screen->tile [view pos]
-  (grid.p->t 
-    (v.vsub 
+  (grid.p->t
+    (v.vsub
       (v.vsub (v.vadd pos view.camera) view.tl)
       (v.vmul view.wh 0.5))))
 
 (fn world->screen [view pos]
-  (v.vadd 
+  (v.vadd
     (v.vadd (v.vsub pos view.camera) view.tl)
     (v.vmul view.wh 0.5)))
 
@@ -43,8 +43,8 @@
 
 (fn notification [s duration]
   (let [note {:message s :y -60}]
-    (util.tween note :y 0 0.8 {:e (util.powf 2) :f 
-      (fn [_] (util.wait (or duration 4) 
+    (util.tween note :y 0 0.8 {:e (util.powf 2) :f
+      (fn [_] (util.wait (or duration 4)
         (fn [_] (util.tween note :y -60 0.8 {:e (util.powf 2) :f (fn [_] (util.del _G.notifications note))}))))})
     (table.insert _G.notifications note)))
 
@@ -54,7 +54,7 @@
         t-ul (v.vint (v.vsub cam-tpos (v.vmul view.tile-wh 0.5)))
         t-br (v.vadd (v.vadd t-ul view.tile-wh) (v.v2 1 1))]
     (draw_rect view.tl.x view.tl.y view.wh.x view.wh.y true)
-    
+
     (for [x t-ul.x t-br.x]
       (for [y t-ul.y t-br.y]
         (let [tile (grid.gget _G.state.world (v.v2 x y))
@@ -65,11 +65,11 @@
 
             (let [spr-pos (v.vmul (sprite-idx->v2 (or tile bgtile) 8) 16)
                   tpos (tile->screen view (v.v2 x y))]
-              (when bgtile 
-                (draw_sprite "background_sprites.png"
+              (when bgtile
+                (draw_img "background_sprites.png"
                   tpos.x tpos.y spr-pos.x spr-pos.y 16 16))
               (when tile
-                (draw_sprite "world_sprites.png"
+                (draw_img "world_sprites.png"
                   tpos.x tpos.y spr-pos.x spr-pos.y 16 16)) )))))))
 
 (fn draw-notifications [window]
@@ -84,7 +84,7 @@
       (draw_rect_lines (- midpoint.x (* width 0.5)) midpoint.y width height  1 false)
       (draw_rect_lines (+ (- midpoint.x (* width 0.5)) 3) (+ midpoint.y 3) (- width 6) (- height 6)  2 false)
       (each [i line (ipairs note.message)]
-        (draw_text line (- midpoint.x (* (# line) 5.3 0.5)) 
+        (draw_text line (- midpoint.x (* (# line) 5.3 0.5))
           (+ midpoint.y -2 (* height 0.5) (- (* mheight 0.5)) (* i 12)) false)))))
 
 (fn mask-view [view]

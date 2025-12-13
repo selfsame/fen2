@@ -32,6 +32,11 @@
 #define APP_BASE_WIDTH 640
 #define APP_BASE_HEIGHT 480
 
+bool fullscreen = false;
+
+float mousex = 0;
+float mousey = 0;
+
 KHASH_MAP_INIT_STR(texture_cache, SDL_Texture*)
 KHASH_MAP_INIT_INT(rendertexture_cache, SDL_Texture*)
 KHASH_MAP_INIT_INT(app_cache, struct App*)
@@ -173,6 +178,7 @@ void draw_font_text(Font *font, float x, float y, char* text){
 
 int app_create_rendertexture(struct App *app, int w, int h){
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB32, SDL_TEXTUREACCESS_TARGET, w, h);
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
     int ret;
     khint_t k = kh_put(rendertexture_cache, app->rendertextures, app->rt_id, &ret);
     kh_value(app->rendertextures, k) = texture;
@@ -251,7 +257,6 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "play_sound", _play_sound);
     lua_register(L, "load_img", _load_img);
     lua_register(L, "draw_img", _draw_img);
-    lua_register(L, "draw_sprite", _draw_sprite);
     lua_register(L, "draw_9patch", _draw_9patch);
     lua_register(L, "create_rendertexture", _create_rendertexture);
     lua_register(L, "destroy_rendertexture", _destroy_rendertexture);
@@ -437,7 +442,8 @@ int main(int argc, char *argv[])
         SDL_Quit();
         return 1;
     }
-    // SDL_SetRenderVSync(renderer, 1);
+
+    SDL_SetRenderVSync(renderer, 1);
 
     Fen2Init();
     last_timestamp = SDL_GetPerformanceCounter();
@@ -445,10 +451,36 @@ int main(int argc, char *argv[])
     // Main loop
     int running = 1;
     while (running) {
+
+        SDL_GetMouseState(&mousex, &mousey);
+        int windoww, windowh;
+        SDL_GetWindowSize(window, &windoww, &windowh);
+
+        if (windoww > APP_BASE_WIDTH * 2 && windowh > APP_BASE_HEIGHT * 2 ) {
+            SDL_Rect viewport = {(windoww-(APP_BASE_WIDTH*2))/4, (windowh-APP_BASE_HEIGHT*2)/4,
+                                 APP_BASE_WIDTH*2, APP_BASE_HEIGHT*2};
+            SDL_SetRenderViewport(renderer, &viewport);
+            SDL_SetRenderScale(renderer, 2.0f, 2.0f);
+        } else {
+            SDL_SetRenderScale(renderer, 1.0f, 1.0f);
+            SDL_Rect viewport = {(windoww-APP_BASE_WIDTH)/2, (windowh-APP_BASE_HEIGHT)/2,
+                                 APP_BASE_WIDTH, APP_BASE_HEIGHT};
+            SDL_SetRenderViewport(renderer, &viewport);
+        }
+        float renderx, rendery;
+        SDL_RenderCoordinatesFromWindow(renderer, mousex, mousey, &renderx, &rendery);
+        mousex = renderx;
+        mousey = rendery;
+
+
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = 0;
+            }
+            if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_F11 && !event.key.repeat) {
+                fullscreen = !fullscreen;
+                SDL_SetWindowFullscreen(window, fullscreen);
             }
         }
 
@@ -459,6 +491,11 @@ int main(int argc, char *argv[])
 
         update_mouse_states();
         update_key_states();
+
+        // need to clear screen in case window size/fullscreen has changed
+        SDL_SetRenderClipRect(renderer, NULL);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
 
         SDL_Rect clip_rect = {0, 0, APP_BASE_WIDTH, APP_BASE_HEIGHT};
         SDL_SetRenderClipRect(renderer, &clip_rect);

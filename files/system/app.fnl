@@ -66,8 +66,8 @@
           (if (. files "icon32.png")
             (do
               (load_img (.. path "icon32.png"))
-              (draw_sprite (.. path "icon32.png") x (- y 16) 0 0 32 32))
-            (draw_sprite  "default_icon32.png" x (- y 16) 0 0 32 32))
+              (draw_img (.. path "icon32.png") x (- y 16) 0 0 32 32))
+            (draw_img "default_icon32.png" x (- y 16) 0 0 32 32))
           (draw_text path  (+ x 40) (+ y 4) (not mouse-over?))
           (if (and mouse-over? (mouse_pressed 1))
             (let [new-app (launch_process path)]
@@ -85,8 +85,9 @@
           (do (update_process app dt)
               (draw_app_rendertexture app 0 0 0) ))))
 
-    (draw_rect 555 5 630 15 false)
-    ;(draw_text (.. "FPS: " (math.floor (/ 1 dt))) 560 10 true)
+    (when false
+      (draw_rect 590 0 640 13 false)
+      (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 592 11 true))
     )
 
 

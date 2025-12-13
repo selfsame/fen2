@@ -30,9 +30,9 @@
             spr-pos (v.vmul sprite 16 16)]
         (if (and e.invincible (> e.invincible 0))
           (if (< (math.cos (* _G.time 70)) 0.3)
-            (draw_sprite "entities.png"
+            (draw_img "entities.png"
                     wpos.x wpos.y spr-pos.x spr-pos.y 16 16))
-          (draw_sprite "entities.png"
+          (draw_img "entities.png"
                     wpos.x wpos.y spr-pos.x spr-pos.y 16 16))))))
 
 (var gravities

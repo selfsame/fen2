@@ -159,26 +159,13 @@ static int _draw_img(lua_State *L){
     const char *img_path = lua_tostring(L, 1);
     const double x = lua_tonumber(L, 2);
     const double y = lua_tonumber(L, 3);
-    // check app.textures cache
-    khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
-    if (ck == kh_end(current_app->textures)) {
-        printf("Unable to draw_img, no image loaded for: %s", img_path);
-        return 0;
-    }
-    SDL_Texture *texture = kh_value(current_app->textures, ck);
-    SDL_FRect dest = {x, y, texture->w, texture->h};
-    SDL_RenderTexture(renderer, texture, NULL, &dest);
-    return 0;
-}
-
-static int _draw_sprite(lua_State *L){
-    const char *img_path = lua_tostring(L, 1);
-    const double x = lua_tonumber(L, 2);
-    const double y = lua_tonumber(L, 3);
-    const int sx = lua_tointeger(L, 4);
-    const int sy = lua_tointeger(L, 5);
-    const int sw = lua_tointeger(L, 6);
-    const int sh = lua_tointeger(L, 7);
+    int isnumsx, isnumsy, isnumsw, isnumsh, isnumdw, isnumdh;
+    const int sx = lua_tointegerx(L, 4, &isnumsx);
+    const int sy = lua_tointegerx(L, 5, &isnumsy);
+    const int sw = lua_tointegerx(L, 6, &isnumsw);
+    const int sh = lua_tointegerx(L, 7, &isnumsh);
+    const int dw = lua_tointegerx(L, 8, &isnumdw);
+    const int dh = lua_tointegerx(L, 9, &isnumdh);
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck == kh_end(current_app->textures)) {
@@ -186,10 +173,22 @@ static int _draw_sprite(lua_State *L){
         return 0;
     }
     SDL_Texture *texture = kh_value(current_app->textures, ck);
-    SDL_FRect srce = {sx, sy, sw, sh};
-    SDL_FRect dest = {x, y, sw, sh};
-    SDL_RenderTexture(renderer, texture, &srce, &dest);
-return 0;
+    SDL_FRect srce, dest;
+    SDL_FRect *psrce = NULL;
+    if (isnumsx && isnumsy && isnumsw && isnumsh) {
+        srce = (SDL_FRect){sx, sy, sw, sh};
+        psrce = &srce;
+    }
+    if (isnumdw && isnumdh) {
+        dest = (SDL_FRect){x, y, dw, dh};
+    } else if (isnumsw && isnumsh) {
+        dest = (SDL_FRect){x, y, sw, sh};
+    } else {
+        dest = (SDL_FRect){x, y, texture->w, texture->h};
+    }
+
+    SDL_RenderTexture(renderer, texture, psrce, &dest);
+    return 0;
 }
 
 static int _draw_9patch(lua_State *L){
@@ -236,14 +235,45 @@ static int _target_rendertexture(lua_State *L){
     return 1;
 }
 
+// static int _draw_rendertexture(lua_State *L){
+//     const int *img_key = lua_tointeger(L, 1);
+//     const double x = lua_tonumber(L, 2);
+//     const double y = lua_tonumber(L, 3);
+//     SDL_Texture *texture = app_get_rendertexture(current_app, img_key);
+//     if (texture == NULL) return 0;
+//     SDL_FRect dest = {x, y, texture->w, texture->h};
+//     SDL_RenderTexture(renderer, texture, NULL, &dest);
+//     return 0;
+// }
+
 static int _draw_rendertexture(lua_State *L){
     const int *img_key = lua_tointeger(L, 1);
     const double x = lua_tonumber(L, 2);
     const double y = lua_tonumber(L, 3);
+    int isnumsx, isnumsy, isnumsw, isnumsh, isnumdw, isnumdh;
+    const int sx = lua_tointegerx(L, 4, &isnumsx);
+    const int sy = lua_tointegerx(L, 5, &isnumsy);
+    const int sw = lua_tointegerx(L, 6, &isnumsw);
+    const int sh = lua_tointegerx(L, 7, &isnumsh);
+    const int dw = lua_tointegerx(L, 8, &isnumdw);
+    const int dh = lua_tointegerx(L, 9, &isnumdh);
+
     SDL_Texture *texture = app_get_rendertexture(current_app, img_key);
     if (texture == NULL) return 0;
-    SDL_FRect dest = {x, y, texture->w, texture->h};
-    SDL_RenderTexture(renderer, texture, NULL, &dest);
+
+    SDL_FRect srce, dest;
+    SDL_FRect *psrce = NULL;
+    if (isnumsx && isnumsy && isnumsw && isnumsh) {
+        srce = (SDL_FRect){sx, sy, sw, sh};
+        psrce = &srce;
+    }
+    if (isnumdw && isnumdh) {
+        dest = (SDL_FRect){x, y, dw, dh};
+    } else {
+        dest = (SDL_FRect){x, y, texture->w, texture->h};
+    }
+
+    SDL_RenderTexture(renderer, texture, psrce, &dest);
     return 0;
 }
 
@@ -299,11 +329,8 @@ static int _key_released(lua_State *L){
 
 static int _mouse_pos(lua_State *L){
     const char *key = lua_tostring(L, 1);
-    // TODO
-    float x, y;
-    SDL_GetMouseState(&x, &y);
-    lua_pushnumber(L, x);
-    lua_pushnumber(L, y);
+    lua_pushnumber(L, mousex);
+    lua_pushnumber(L, mousey);
     return 2;
 }
 

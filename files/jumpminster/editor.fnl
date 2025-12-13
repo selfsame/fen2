@@ -71,7 +71,7 @@
               p (v.vadd (v.vmul (v.v2 x y) 22) (v.v2 420 20))
               outline (fn [] (draw_rect_lines (- p.x 2) (- p.y 2) 22 22 1 true))]
           (draw_rect p.x p.y 18 18 true)
-          (draw_sprite (if (= layer :world) "world_sprites.png"
+          (draw_img (if (= layer :world) "world_sprites.png"
                            (= layer :background) "background_sprites.png")
             (+ p.x 1) (+ p.y 1) sv.x sv.y 16 16)
 

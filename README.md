@@ -39,21 +39,21 @@
 ## API
 
 ```fnl
-(clear_screen true)
+(clear_screen color)
 
 (load_img "img/foo.png")
-(draw_img x y "img/foo.png")
-(draw_sprite x y sx sy w h "img/foo.png")
+(draw_img "img/foo.png" x y sx? sy? sw? sh? dw? dh?)
+(draw_img_tiled "pattern.png" x y w h scale? sy? sx? sw? sh?)
 (draw_9patch "window.png" left right top bottom x y w h)
 (create_rendertexture w h) -> id
 (destroy_rendertexture id)
-(draw_rendertexture id x y)
+(draw_rendertexture id x y sx? sy? sw? sh? dw? dh?)
 
 (load_font "consola.ttf")
-(draw_text "HELLO" x y true)
+(draw_text "HELLO" x y color)
 
-(draw_rect x y w h false)
-(draw_rect_lines x y w h thickness true)
+(draw_rect x y w h color)
+(draw_rect_lines x y w h thickness color)
 
 (load_sound "bar.wav")
 (play_sound "bar.wav" false 0.2)

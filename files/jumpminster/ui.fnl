@@ -27,7 +27,7 @@
       (let [iy (math.floor (/ i width))
             ix (% i width)
             spr (if (< i cnt) fill-pos spr-pos)]
-      (draw_sprite "entities.png"
+      (draw_img "entities.png"
         (+ x (* ix 12)) (+ y (* iy 12)) spr.x spr.y 16 16)))))
 
 {:button button :checkbox checkbox :icon-bar icon-bar}
