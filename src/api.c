@@ -379,8 +379,6 @@ static int _launch_process(lua_State *L){
         app_name = path + 3;
     }
     struct App * app = new_app(app_name, false);
-    current_app = system_app;
-    app_set_cwd(system_app);
     lua_pushinteger(L, app->id);
     return 1;
 }
@@ -399,8 +397,6 @@ static int _update_process(lua_State *L){
     struct App * app = get_app(id);
     if (app != NULL) {
         app_update(app);
-        current_app = system_app;
-        app_set_cwd(system_app);
     }
     return 1;
 }

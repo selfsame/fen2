@@ -216,9 +216,15 @@ void app_set_cwd(struct App *app){
     }
 }
 
+/* as the only entrypoint to lua we set some app specific state, then reset after the eval.
+ * this allows things like nested app evals where the state is always restored
+ */
 void app_eval(struct App *app, char *s){
+    struct App *prev_app = current_app;
+    SDL_Texture *prev_render_target = SDL_GetRenderTarget(renderer);
     current_app = app;
     app_set_cwd(app);
+    app_set_rendertexture(app, 0);
     if (luaL_loadstring(app->lua, s) == LUA_OK) {
         if (lua_pcall(app->lua, 0, 0, 0) != LUA_OK) {
             // Handle error
@@ -229,14 +235,15 @@ void app_eval(struct App *app, char *s){
         printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
     }
     lua_gc(app->lua, LUA_GCCOLLECT, NULL);
+    current_app = prev_app;
+    if (current_app) app_set_cwd(current_app);
+    SDL_SetRenderTarget(renderer, prev_render_target);
 }
 
 void app_update(struct App *app){
-    app_set_rendertexture(app, 0);
     char buffer[60];
     sprintf(buffer, "if app and app.update then app.update(%f) end", delta);
     app_eval(app, buffer);
-    SDL_SetRenderTarget(renderer, NULL);
 }
 
 #include "api.c"
@@ -307,9 +314,6 @@ struct App * new_app(char path[], bool is_system){
     int ret;
     khint_t k = kh_put(app_cache, apps, app->id, &ret);
     kh_value(apps, k) = app;
-
-
-    app_set_cwd(app);
 
     char package_path[PATH_MAX * 2];
     char fennel_path[PATH_MAX * 2];
@@ -512,7 +516,7 @@ int main(int argc, char *argv[])
 
         struct timespec start, end;
         clock_gettime(CLOCK_MONOTONIC, &start);
-        app_set_cwd(system_app);
+
         app_update(system_app);
         SDL_Texture* system_texture = app_get_rendertexture(system_app, 0);
         SDL_FRect dest = {0, 0, APP_BASE_WIDTH, APP_BASE_HEIGHT};
