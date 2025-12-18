@@ -1,3 +1,5 @@
+(load_img  "patterns.png")
+(load_img  "window.png")
 (load_img  "default_icon32.png")
 
 (var running-apps {})
@@ -17,6 +19,14 @@
     (_find-apps dir found)
     (table.sort found)
     found))
+
+(fn draw-window [x y w h f]
+  (draw_9patch "window.png" 4 4 15 4 x y w h)
+  (draw_img "patterns.png" (+ x w -15) (+ y 1) 0 40 13 13)
+  ;(draw_img "patterns.png" (+ x w -15) (+ y 1) 16 40 13 13)
+  (clip_rect (+ x 3) (+ y 15) (- w 7) (- h 19))
+  (f)
+  (clip_rect))
 
 
 (fn start []
@@ -53,6 +63,12 @@
     (draw_text "FEN2" 280 90 true)
     (draw_text (.. (count running-apps) " running apps") 2 10 true)
     (draw_text "[tab] to cycle app, [q] to quit current app" 186 10 true)
+
+    (draw_img "patterns.png" 0 14 32 0 8 8 640 466 true)
+    (draw_rect 0 14 640 1 true)
+
+
+
     (let [app_paths (find-apps "../")]
       (each [i path (ipairs app_paths)]
         (let [files (list_files path)
@@ -82,8 +98,17 @@
         ;   (send_message app "hello child"))
         (if (key_pressed "q")
           (handle_quit app)
-          (do (update_process app dt)
-              (draw_app_rendertexture app 0 0 0) ))))
+          (do
+            (update_process app dt)
+            (target_rendertexture 0)
+            (draw-window 340 50 280 200 (fn []
+              (draw_app_rendertexture app 0 343 64)
+              )
+
+
+               ))))
+
+     )
 
     (when false
       (draw_rect 590 0 640 13 false)

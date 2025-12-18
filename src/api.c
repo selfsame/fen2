@@ -159,13 +159,15 @@ static int _draw_img(lua_State *L){
     const char *img_path = lua_tostring(L, 1);
     const double x = lua_tonumber(L, 2);
     const double y = lua_tonumber(L, 3);
-    int isnumsx, isnumsy, isnumsw, isnumsh, isnumdw, isnumdh;
+    int isnumsx, isnumsy, isnumsw, isnumsh, isnumdw, isnumdh, isnumtiled_scale;
     const int sx = lua_tointegerx(L, 4, &isnumsx);
     const int sy = lua_tointegerx(L, 5, &isnumsy);
     const int sw = lua_tointegerx(L, 6, &isnumsw);
     const int sh = lua_tointegerx(L, 7, &isnumsh);
     const int dw = lua_tointegerx(L, 8, &isnumdw);
     const int dh = lua_tointegerx(L, 9, &isnumdh);
+    const int tiled = lua_toboolean(L, 10);
+    const float tiled_scale = lua_tonumberx(L, 9, &isnumtiled_scale);
     // check app.textures cache
     khint_t ck = kh_get(texture_cache, current_app->textures, img_path);
     if (ck == kh_end(current_app->textures)) {
@@ -187,7 +189,11 @@ static int _draw_img(lua_State *L){
         dest = (SDL_FRect){x, y, texture->w, texture->h};
     }
 
-    SDL_RenderTexture(renderer, texture, psrce, &dest);
+    if (tiled) {
+        SDL_RenderTextureTiled(renderer, texture, psrce, (isnumtiled_scale && tiled_scale) || 1.0, &dest);
+    } else {
+        SDL_RenderTexture(renderer, texture, psrce, &dest);
+    }
     return 0;
 }
 
@@ -373,6 +379,8 @@ static int _launch_process(lua_State *L){
         app_name = path + 3;
     }
     struct App * app = new_app(app_name, false);
+    current_app = system_app;
+    app_set_cwd(system_app);
     lua_pushinteger(L, app->id);
     return 1;
 }
@@ -391,6 +399,7 @@ static int _update_process(lua_State *L){
     struct App * app = get_app(id);
     if (app != NULL) {
         app_update(app);
+        current_app = system_app;
         app_set_cwd(system_app);
     }
     return 1;
@@ -413,7 +422,7 @@ static int _draw_app_rendertexture(lua_State *L){
     const double x = lua_tonumber(L, 3);
     const double y = lua_tonumber(L, 4);
     struct App * app = get_app(id);
-    SDL_Texture *texture = app_get_rendertexture(current_app, img_key);
+    SDL_Texture *texture = app_get_rendertexture(app, img_key);
     if (app != NULL && texture != NULL) {
         SDL_FRect dest = {x, y, texture->w, texture->h};
         SDL_RenderTexture(renderer, texture, NULL, &dest);

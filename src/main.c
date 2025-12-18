@@ -232,7 +232,7 @@ void app_eval(struct App *app, char *s){
 }
 
 void app_update(struct App *app){
-    if (app != system_app) app_set_rendertexture(app, 0);
+    app_set_rendertexture(app, 0);
     char buffer[60];
     sprintf(buffer, "if app and app.update then app.update(%f) end", delta);
     app_eval(app, buffer);

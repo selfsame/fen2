@@ -42,8 +42,7 @@
 (clear_screen color)
 
 (load_img "img/foo.png")
-(draw_img "img/foo.png" x y sx? sy? sw? sh? dw? dh?)
-(draw_img_tiled "pattern.png" x y w h scale? sy? sx? sw? sh?)
+(draw_img "img/foo.png" x y sx? sy? sw? sh? dw? dh? tiled? tile_scale?)
 (draw_9patch "window.png" left right top bottom x y w h)
 (create_rendertexture w h) -> id
 (destroy_rendertexture id)
