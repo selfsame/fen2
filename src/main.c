@@ -217,8 +217,7 @@ void app_set_cwd(struct App *app){
 }
 
 /* as the only entrypoint to lua we set some app specific state, then reset after the eval.
- * this allows things like nested app evals where the state is always restored
- */
+ * this allows things like nested app evals where the state is always restored */
 void app_eval(struct App *app, char *s){
     struct App *prev_app = current_app;
     SDL_Texture *prev_render_target = SDL_GetRenderTarget(renderer);
@@ -227,11 +226,9 @@ void app_eval(struct App *app, char *s){
     app_set_rendertexture(app, 0);
     if (luaL_loadstring(app->lua, s) == LUA_OK) {
         if (lua_pcall(app->lua, 0, 0, 0) != LUA_OK) {
-            // Handle error
             printf("Lua error: %s\n", lua_tostring(app->lua, -1));
         }
     } else {
-        // Handle loading error
         printf("Lua loading error: %s\n", lua_tostring(app->lua, -1));
     }
     lua_gc(app->lua, LUA_GCCOLLECT, NULL);

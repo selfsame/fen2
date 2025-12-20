@@ -67,9 +67,11 @@
     (f)
     (clip_rect))
 
-  (draw-window 10 10 300 100
-    (fn [] (draw_rendertexture rtex 13 21)))
-  (draw-window 120 60 300 100
-    (fn [] (draw_rendertexture rtex 123 71 nil nil nil nil 1024 1024))) )
+  ; (draw-window 10 10 300 100
+  ;   (fn [] (draw_rendertexture rtex 13 21)))
+  ; (draw-window 120 60 300 100
+  ;   (fn [] (draw_rendertexture rtex 123 71 nil nil nil nil 1024 1024)))
+  (draw_rendertexture rtex 0 0)
+  )
 
 {:update update}
