@@ -4,7 +4,7 @@
 (load_img  "window.png")
 (load_img  "default_icon32.png")
 
-(var running-apps {})
+(var running-apps [])
 (var app-idx 0)
 
 (fn _find-apps [dir found]
@@ -30,9 +30,9 @@
 
 (var window-z 0)
 
-(fn new-window [name]
+(fn new-window [id name]
   (set window-z (+ window-z 1))
-  {:x (math.random 30 100) :y (math.random 40 100) :w 200 :h 100 :title name :idx window-z})
+  {:x (math.random 30 100) :y (math.random 40 100) :w 200 :h 100 :id id :title name :idx window-z})
 
 (fn draw-window [{: x : y : w : h : title} f]
   (draw_9patch "window.png" 4 4 15 4 x y w h)
@@ -50,17 +50,10 @@
 (fn start []
   (print "system starting.."))
 
-
-
-(fn sorted-table [m f]
-  (var res [])
-  (each [k v (pairs m)]
-    (table.insert res [k v]))
-  (table.sort res f)
-  res)
-
 (fn sorted-apps []
-  (sorted-table running-apps (fn [[_ a] [_ b]] (< a.idx b.idx))))
+
+  (table.sort running-apps (fn [a b] (< a.idx b.idx)))
+  running-apps)
 
 (fn index-of-key [col key]
   (var cnt 0)
@@ -76,9 +69,9 @@
 (fn check-input []
   (when (mouse_pressed 1)
     (let [(x y) (mouse_pos)
-          [_ window] (util.last (util.filter (fn [[id window]]
+          window (util.last (util.filter (fn [window]
                    (and (< window.x x (+ window.x window.w))
-                        (< window.y y (+ window.y window.h)))) (sorted-apps) ))]
+                        (< window.y y (+ window.y window.h)))) (sorted-apps)))]
 
       (when window
         (set window-z (+ window-z 1))
@@ -87,20 +80,15 @@
 
 (fn handle_quit [pid]
   (print "handle_quit" pid)
-  (tset running-apps pid nil)
-  (set app-idx 0)
+  (set running-apps (util.filter (fn [window] (not= window.id pid)) running-apps))
   (close_process pid))
 
 (fn update [dt]
-  (when (key_pressed "tab")
-    (set app-idx (+ app-idx 1))
-    (if (> app-idx (count running-apps))
-      (set app-idx 0)))
+
   (when true ;(= app-idx 0)
     (clear_screen false)
     (draw_text "FEN2" 280 90 true)
-    (draw_text (.. (count running-apps) " running apps") 2 10 true)
-    (draw_text "[tab] to cycle app, [q] to quit current app" 186 10 true)
+    (draw_text (.. (# running-apps) " running apps") 2 10 true)
 
     (draw_img "patterns.png" 0 14 32 0 8 8 640 466 true)
     (draw_rect 0 14 640 1 true)
@@ -122,35 +110,27 @@
             (draw_img "default_icon32.png" x (- y 16) 0 0 32 32))
           (draw_text path  (+ x 40) (+ y 4) (not mouse-over?))
           (if (and mouse-over? (mouse_pressed 1))
-            (let [new-app (launch_process path)]
-
-              (tset running-apps new-app (new-window path))
-              (set app-idx (index-of-key running-apps new-app))))))))
+            (let [app-id (launch_process path)]
+              (table.insert running-apps (new-window app-id path)) ))))))
 
     (check-input)
 
     (var i 0)
-    (each [_ [app window] (pairs (sorted-apps))]
+    (each [_ window (pairs (sorted-apps))]
       (set i (+ i 1))
       (when true ;(= i app-idx)
         ; (if (key_pressed "m")
         ;   (send_message app "hello child"))
         (if (key_pressed "q")
-          (handle_quit app)
+          (handle_quit window.id)
           (do
-            (update_process app dt)
+            (update_process window.id dt)
             (draw-window window (fn []
-              (draw_app_rendertexture app 0 (+ window.x 3) (+ window.y 14)))
-
-
-               ))))
-
-     )
+              (draw_app_rendertexture window.id 0 (+ window.x 3) (+ window.y 14))) )))))
 
     (when true
       (draw_rect 590 0 640 13 false)
-      (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 592 11 true))
-    )
+      (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 592 11 true)))
 
 
 
