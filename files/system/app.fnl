@@ -28,20 +28,28 @@
     (set cnt (+ cnt 1)))
   cnt)
 
+(fn handle_quit [pid]
+  (print "handle_quit" pid)
+  (set running-apps (util.filter (fn [window] (not= window.id pid)) running-apps))
+  (close_process pid))
+
 (var window-z 0)
 
 (fn new-window [id name]
   (set window-z (+ window-z 1))
   {:x (math.random 30 100) :y (math.random 40 100) :w 200 :h 100 :id id :title name :idx window-z})
 
-(fn draw-window [{: x : y : w : h : title} f]
+(fn draw-window [{: x : y : w : h : title : close-button} f]
   (draw_9patch "window.png" 4 4 15 4 x y w h)
   (let [tlen (* (# title) 6)
         tx (+ x (/ w 2) (* tlen -0.5))]
+    (clip_rect (+ x 1) (+ y 1) (+ w -16) 14)
     (draw_rect tx (+ y 1) tlen 13 false)
-    (draw_text title (+ tx 4) (+ y 12) true))
-  (draw_img "patterns.png" (+ x w -15) (+ y 1) 0 40 13 13)
-  ;(draw_img "patterns.png" (+ x w -15) (+ y 1) 16 40 13 13)
+    (draw_text title (+ tx 4) (+ y 12) true)
+    (clip_rect))
+  (if close-button
+    (draw_img "patterns.png" (+ x w -15) (+ y 1) 16 40 13 13)
+    (draw_img "patterns.png" (+ x w -15) (+ y 1) 0 40 13 13))
   (clip_rect (+ x 3) (+ y 15) (- w 7) (- h 19))
   (f)
   (clip_rect))
@@ -51,7 +59,6 @@
   (print "system starting.."))
 
 (fn sorted-apps []
-
   (table.sort running-apps (fn [a b] (< a.idx b.idx)))
   running-apps)
 
@@ -64,9 +71,14 @@
       (set res cnt)))
   res)
 
+(fn mouse-over? [x y w h]
+  (let [(mx my) (mouse_pos)]
+    (and (< x mx (+ x w)) (< y my (+ y h)))))
 
+(var mouse-move-fn nil)
+(var mouse-up-fn nil)
 
-(fn check-input []
+(fn handle-mouse-down []
   (when (mouse_pressed 1)
     (let [(x y) (mouse_pos)
           window (util.last (util.filter (fn [window]
@@ -75,13 +87,44 @@
 
       (when window
         (set window-z (+ window-z 1))
-        (tset window :idx window-z))
-      )))
+        (tset window :idx window-z)
+        (if (mouse-over? (+ window.x window.w -14) window.y 14 14)
+          (do (tset window :close-button true)
+              (set mouse-up-fn (fn []
+                (if (mouse-over? (+ window.x window.w -14) window.y 14 14)
+                  (handle_quit window.id)
+                  (tset window :close-button false)))))
+          (let [over-bar? (mouse-over? window.x window.y window.w 14)
+                over-resizer? (mouse-over? (+ window.x window.w -6) (+ window.y window.h -6) 6 6)]
+          (if (or over-bar? over-resizer?)
+            (let [(startx starty) (mouse_pos)]
+              (var lastx startx)
+              (var lasty starty)
+              (set mouse-move-fn (fn []
+                (let [(mx my) (mouse_pos)
+                      dx (- mx lastx)
+                      dy (- my lasty)]
+                  (set lastx mx)
+                  (set lasty my)
+                  (when over-bar?
+                    (tset window :x (util.round (+ window.x dx)))
+                    (tset window :y (util.round (+ window.y dy))))
+                  (when over-resizer?
+                    (tset window :w (util.round (+ window.w dx)))
+                    (tset window :h (util.round (+ window.h dy))))
+                )))))))))))
 
-(fn handle_quit [pid]
-  (print "handle_quit" pid)
-  (set running-apps (util.filter (fn [window] (not= window.id pid)) running-apps))
-  (close_process pid))
+(fn check-input []
+  (when (mouse_pressed 1)
+    (handle-mouse-down))
+  (when (mouse_down 1)
+    (if mouse-move-fn (mouse-move-fn)))
+  (when (mouse_released 1)
+    (if mouse-up-fn (mouse-up-fn))
+    (set mouse-move-fn nil)
+    (set mouse-up-fn nil)))
+
+
 
 (fn update [dt]
 
@@ -89,6 +132,7 @@
     (clear_screen false)
     (draw_text "FEN2" 280 90 true)
     (draw_text (.. (# running-apps) " running apps") 2 10 true)
+    (draw_text (fennel.view (mouse_down 1)) 160 10 true)
 
     (draw_img "patterns.png" 0 14 32 0 8 8 640 466 true)
     (draw_rect 0 14 640 1 true)
@@ -114,20 +158,13 @@
               (table.insert running-apps (new-window app-id path)) ))))))
 
     (check-input)
-
-    (var i 0)
-    (each [_ window (pairs (sorted-apps))]
-      (set i (+ i 1))
-      (when true ;(= i app-idx)
-        ; (if (key_pressed "m")
-        ;   (send_message app "hello child"))
-        (if (key_pressed "q")
-          (handle_quit window.id)
-          (do
-            (update_process window.id dt)
-            (draw-window window (fn []
-              (draw_app_rendertexture window.id 0 (+ window.x 3) (+ window.y 14))) )))))
-
+    (each [i window (pairs (sorted-apps))]
+      (when (= i (# running-apps))
+        (set_mouse_offset (+ window.x 3) (+ window.y 15) )
+        (update_process window.id dt))
+      (draw-window window (fn []
+        (draw_app_rendertexture window.id 0 (+ window.x 3) (+ window.y 14))) ))
+    (set_mouse_offset 0 0)
     (when true
       (draw_rect 590 0 640 13 false)
       (draw_text (.. "FPS: " (math.floor (/ 1 dt))) 592 11 true)))

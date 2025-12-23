@@ -95,6 +95,7 @@
     (= o nil) "nil"
     (.. o)))
 
+(fn round [n] (math.floor (+ n 0.5)))
 
 ; game stuff
 
@@ -128,6 +129,7 @@
  :get get
  :remove remove
  :tableprint tableprint
+ :round round
  :chance chance
  :rand rand
  :rand-nth rand-nth}

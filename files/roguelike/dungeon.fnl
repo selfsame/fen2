@@ -46,7 +46,8 @@
     (if (= (util.gget m point) n) point (random-tile m n))))
 
 (fn make-level [w h depth]
-  (var grid (util.gridmap 28 28 0))
+  (math.randomseed)
+  (var grid (util.gridmap 40 28 0))
   (drunk-dungeon grid (v.v2 14 14) 100 1 80)
   (drunk-dungeon grid (v.v2 14 14) 100 1 70)
   (for [i 0 20]

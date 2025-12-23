@@ -335,8 +335,8 @@ static int _key_released(lua_State *L){
 
 static int _mouse_pos(lua_State *L){
     const char *key = lua_tostring(L, 1);
-    lua_pushnumber(L, mousex);
-    lua_pushnumber(L, mousey);
+    lua_pushnumber(L, mousex-mouse_offset_x);
+    lua_pushnumber(L, mousey-mouse_offset_y);
     return 2;
 }
 
@@ -407,6 +407,14 @@ static int _close_process(lua_State *L){
     if (app != NULL) {
         app->queue_destroy = true;
     }
+    return 0;
+}
+
+static int _set_mouse_offset(lua_State *L){
+    const float x = lua_tonumber(L, 1);
+    const float y = lua_tonumber(L, 2);
+    mouse_offset_x = x;
+    mouse_offset_y = y;
     return 0;
 }
 

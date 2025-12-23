@@ -35,9 +35,8 @@
   (each [y row (pairs m.grid)]
     (each [x val (pairs row)]
       (match val
-        1 (draw_img "sprites.png"
-            (* x 16) (* y 16) 0 0 16 16))
-      )))
+        1 (draw_rect_lines (* x 4) (* y 4) 4 4 true) ;(draw_img "sprites.png" (* x 4) (* y 4) 0 0 16 16 4 4))
+      ))))
 
 
 (fn update [dt]
@@ -45,7 +44,6 @@
     (clear_screen false)
     (set _G.need_redraw false)
     (print "redraw")
-    (draw_text "roguelike"  10 10 true)
     (draw-map _G.current_level)))
 
 (fn message [payload]

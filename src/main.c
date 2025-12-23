@@ -37,6 +37,9 @@ bool fullscreen = false;
 float mousex = 0;
 float mousey = 0;
 
+float mouse_offset_x = 0;
+float mouse_offset_y = 0;
+
 KHASH_MAP_INIT_STR(texture_cache, SDL_Texture*)
 KHASH_MAP_INIT_INT(rendertexture_cache, SDL_Texture*)
 KHASH_MAP_INIT_INT(app_cache, struct App*)
@@ -287,6 +290,7 @@ struct App * new_app(char path[], bool is_system){
         lua_register(L, "launch_process", _launch_process);
         lua_register(L, "update_process", _update_process);
         lua_register(L, "close_process", _close_process);
+        lua_register(L, "set_mouse_offset", _set_mouse_offset);
         lua_register(L, "draw_app_rendertexture", _draw_app_rendertexture);
     }
 
