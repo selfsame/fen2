@@ -297,6 +297,13 @@ static int _draw_text(lua_State *L){
     return 0;
 }
 
+static int _measure_text(lua_State *L){
+    const char *message = lua_tostring(L, 1);
+    Vector2 size = measure_font_text(default_font, message);
+    lua_pushnumber(L, size.x);
+    lua_pushnumber(L, size.y);
+    return 2;
+}
 
 
 static int _key_down(lua_State *L){

@@ -28,6 +28,31 @@
     (set cnt (+ cnt 1)))
   cnt)
 
+(fn parse-val [s]
+  (let [n (tonumber s)]
+    (if n n
+      (if (= "false" s) false
+        (if (= "true" s) true
+          s)))))
+
+; TODO parse IDENTIFIER boolean | number | string
+(fn parse-config [path]
+  (let [config {}]
+    (match (io.open (.. path "config"))
+      f (let [res (f:read :*all)]
+          (f:close)
+          (print "CONFIG")
+          (each [line (string.gmatch res "[^\r\n]+")]
+            (let [col []]
+              (each [word (string.gmatch line "%S+")]
+                (table.insert col (parse-val word)))
+              (if (= (# col) 2)
+                (tset config (. col 1) (. col 2))
+                (tset config (. col 1) (util.rest col)))))
+          (print (fennel.view res)))
+      (nil err-msg) nil)
+    config))
+
 (fn handle_quit [pid]
   (print "handle_quit" pid)
   (set running-apps (util.filter (fn [window] (not= window.id pid)) running-apps))
@@ -35,9 +60,10 @@
 
 (var window-z 0)
 
-(fn new-window [id name]
-  (set window-z (+ window-z 1))
-  {:x (math.random 30 100) :y (math.random 40 100) :w 200 :h 100 :id id :title name :idx window-z})
+(fn new-window [id path]
+  (let [name (or (string.match path "([^/]+)/$") "??")]
+    (set window-z (+ window-z 1))
+    {:x (math.random 30 100) :y (math.random 40 100) :w 200 :h 100 :id id :title name :idx window-z}))
 
 (fn draw-window [{: x : y : w : h : title : close-button} f]
   (draw_9patch "window.png" 4 4 15 4 x y w h)
@@ -95,7 +121,7 @@
                   (handle_quit window.id)
                   (tset window :close-button false)))))
           (let [over-bar? (mouse-over? window.x window.y window.w 14)
-                over-resizer? (mouse-over? (+ window.x window.w -6) (+ window.y window.h -6) 6 6)]
+                over-resizer? (and (not= window.resizable false) (mouse-over? (+ window.x window.w -6) (+ window.y window.h -6) 6 6))]
           (if (or over-bar? over-resizer?)
             (let [(startx starty) (mouse_pos)]
               (var lastx startx)
@@ -154,8 +180,16 @@
             (draw_img "default_icon32.png" x (- y 16) 0 0 32 32))
           (draw_text path  (+ x 40) (+ y 4) (not mouse-over?))
           (if (and mouse-over? (mouse_pressed 1))
-            (let [app-id (launch_process path)]
-              (table.insert running-apps (new-window app-id path)) ))))))
+            (let [config (parse-config path)
+                  app-id (launch_process path)
+                  window (new-window app-id path)]
+              (print (fennel.view config))
+              (when config.WINDOW
+                (tset window :w (. config.WINDOW 1))
+                (tset window :h (. config.WINDOW 2)))
+              (when config.RESIZABLE
+                (tset window :resizable config.RESIZEABLE))
+              (table.insert running-apps window) ))))))
 
     (check-input)
     (each [i window (pairs (sorted-apps))]

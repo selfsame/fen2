@@ -179,6 +179,23 @@ void draw_font_text(Font *font, float x, float y, char* text){
     }
 }
 
+typedef struct {
+    float x;
+    float y;
+} Vector2;
+
+Vector2 measure_font_text(Font *font, char* text){
+    float x = 0;
+    float y = 0;
+    SDL_FRect src, dest;
+    for (const char* p = text; *p; p++) {
+        char c = *p;
+        stbtt_aligned_quad q;
+        stbtt_GetBakedQuad(font->chars, 512, 512, c, &x, &y, &q, 1);
+    }
+    return (Vector2){x, y};
+}
+
 int app_create_rendertexture(struct App *app, int w, int h){
     SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB32, SDL_TEXTUREACCESS_TARGET, w, h);
     SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
@@ -270,6 +287,7 @@ struct App * new_app(char path[], bool is_system){
     lua_register(L, "target_rendertexture", _target_rendertexture);
     lua_register(L, "draw_rendertexture", _draw_rendertexture);
     lua_register(L, "draw_text", _draw_text);
+    lua_register(L, "measure_text", _measure_text);
     lua_register(L, "set_pixel", _set_pixel);
     lua_register(L, "draw_rect", _draw_rect);
     lua_register(L, "draw_rect_lines", _draw_rect_lines);

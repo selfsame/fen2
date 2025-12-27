@@ -68,3 +68,12 @@
 (list_files "dir/")
 (quit)
 ```
+
+## Bugs
+
+-[ ] Creating a folder in files crashes `dmon.h:1026: _dmon_inotify_process_events: Assertion `wd != -1' failed.`
+-[ ] `draw_text` shouldn't crash with non strings
+
+## TODO
+
+-[ ] double check window size should be the inner texture not the UI frame
