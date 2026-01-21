@@ -35,7 +35,6 @@
         (if (= "true" s) true
           s)))))
 
-; TODO parse IDENTIFIER boolean | number | string
 (fn parse-config [path]
   (let [config {}]
     (match (io.open (.. path "config"))
